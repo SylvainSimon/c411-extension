@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "C411 Conformite",
+  "version": "0.1.0",
+  "description": "Verifie la conformite des torrents C411 et aide au signalement.",
+  "content_scripts": [
+    {
+      "matches": ["https://c411.org/*"],
+      "js": [
+        "validators/rules/commonRules.js",
+        "validators/rules/filmRules.js",
+        "validators/validatorFactory.js",
+        "validators/titleValidator.js",
+        "utils/categoryDetector.js",
+        "utils/messageGenerator.js",
+        "ui/panel.js",
+        "content.js"
+      ],
+      "css": ["panel.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}
