@@ -7,6 +7,7 @@
     {
       "matches": ["https://c411.org/*"],
       "js": [
+        "validators/rules/patterns.js",
         "validators/rules/commonRules.js",
         "validators/rules/sharedRules.js",
         "validators/rules/filmTitleParser.js",
@@ -16,6 +17,7 @@
         "validators/validatorFactory.js",
         "validators/titleValidator.js",
         "utils/categoryDetector.js",
+        "utils/tmdbDetector.js",
         "utils/messageGenerator.js",
         "ui/panel.js",
         "content.js"

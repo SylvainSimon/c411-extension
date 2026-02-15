@@ -9,6 +9,7 @@ const SerieRules = {
    */
   getRules() {
     return [
+      (title) => SharedRules.checkTmdbTitle(title),
       this.checkSeasonEpisode,
       (title) => SharedRules.checkLanguage(title, SerieTitleParser),
       (title) => SharedRules.checkResolution(title, SerieTitleParser),

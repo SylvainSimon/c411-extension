@@ -9,6 +9,7 @@ const FilmRules = {
    */
   getRules() {
     return [
+      (title) => SharedRules.checkTmdbTitle(title),
       (title) => SharedRules.checkLanguage(title, FilmTitleParser),
       (title) => SharedRules.checkResolution(title, FilmTitleParser),
       (title) => SharedRules.checkSource(title, FilmTitleParser),

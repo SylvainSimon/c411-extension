@@ -28,9 +28,8 @@ const SharedRules = {
     for (let i = 0; i < parts.length; i++) {
       if (parts[i].toUpperCase() === 'MULTI') {
         const nextPart = parts[i + 1];
-        const validMultiFollowups = ['VFF', 'VFQ', 'VFI', 'VF2', 'TRUEFRENCH'];
 
-        if (!nextPart || !validMultiFollowups.includes(nextPart.toUpperCase())) {
+        if (!nextPart || !Patterns.MULTI_FOLLOWUPS.includes(nextPart.toUpperCase())) {
           return {
             rule: '❌ MULTI incomplet',
             message: 'MULTI doit être suivi de la précision sur la langue française.',
@@ -115,13 +114,8 @@ const SharedRules = {
   checkVideoCodec(title) {
     const upperTitle = title.toUpperCase();
 
-    // Codecs acceptés
-    const acceptedCodecs = ['X264', 'X265', 'SVT-AV1', 'AV1', 'HEVC', 'AVC', 'H264', 'H265', 'H266'];
-    const hasAcceptedCodec = acceptedCodecs.some(codec => upperTitle.includes(codec));
-
-    // Codecs anciens (acceptés exceptionnellement)
-    const oldCodecs = ['XVID', 'H.262', 'H262', 'MPEG-2', 'MPEG2'];
-    const hasOldCodec = oldCodecs.some(codec => upperTitle.includes(codec.replace('.', '')));
+    const hasAcceptedCodec = Patterns.VIDEO_CODECS_ACCEPTED.some(codec => upperTitle.includes(codec));
+    const hasOldCodec = Patterns.VIDEO_CODECS_OLD.some(codec => upperTitle.includes(codec.replace('.', '')));
 
     if (hasOldCodec) {
       return {
@@ -147,9 +141,8 @@ const SharedRules = {
    */
   checkGPUEncoder(title) {
     const upperTitle = title.toUpperCase();
-    const forbiddenEncoders = ['NVENC', 'QSV', 'AMF'];
 
-    for (const encoder of forbiddenEncoders) {
+    for (const encoder of Patterns.GPU_ENCODERS_FORBIDDEN) {
       if (upperTitle.includes(encoder)) {
         return {
           rule: `❌ Encodeur GPU (${encoder})`,
@@ -173,6 +166,32 @@ const SharedRules = {
         rule: '❌ Codec audio absent ou invalide',
         message: 'Le titre ne contient pas de codec audio valide.',
         suggestion: 'Ajoute le codec audio (AAC, AC3, DD, EAC3, DDP, DTS, DTS-HD, DTS-MA, TrueHD, FLAC, OPUS, MP3).'
+      };
+    }
+
+    return null;
+  },
+
+  /**
+   * Vérifie la correspondance avec le titre TMDB si disponible
+   */
+  checkTmdbTitle(title) {
+    const tmdbTitle = TmdbDetector.detectTmdbTitle();
+
+    // Si pas de titre TMDB trouvé, pas d'erreur
+    if (!tmdbTitle) {
+      return null;
+    }
+
+    // Compare les titres
+    if (!TmdbDetector.compareTitles(title, tmdbTitle)) {
+      const userTitle = TmdbDetector.extractTorrentTitleRaw(title);
+      const displayTmdbTitle = TmdbDetector.formatTitleForDisplay(tmdbTitle);
+
+      return {
+        rule: '❌ Titre ne correspond pas à TMDB',
+        message: `Le titre du torrent ne correspond pas au titre français de l'œuvre TMDB liée.`,
+        suggestion: `Le titre TMDB (titre de commercialisation en France) est "${displayTmdbTitle}" mais le titre du torrent commence par "${userTitle}". Tu dois utiliser le titre français de commercialisation et non le titre original. N'oublie pas d'appliquer les règles de nommage (points au lieu d'espaces, pas d'accents ni de caractères spéciaux). Vérifie la fiche TMDB liée et consulte les règles : https://wiki.c411.ch/fr/upload/naming`
       };
     }
 

@@ -41,25 +41,19 @@ const SerieTitleParser = {
       result.tag = tagMatch[1];
     }
 
-    // Patterns de flags
-    const flagPatterns = [
-      'REPACK', 'PROPER', 'UNCENSORED', 'IMAX', 'UNRATED',
-      'DIRECTORS.CUT', 'EXTENDED.CUT', 'THEATRICAL.CUT', 'UNRATED.CUT', 'FINAL.CUT'
-    ];
-
     // Recherche de l'année, saison/épisode, INTEGRALE et flags
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i];
       const upperPart = part.toUpperCase();
 
       // Année
-      if (/^\d{4}$/.test(part) && result.year === null) {
+      if (Patterns.YEAR_PATTERN.test(part) && result.year === null) {
         result.year = part;
         result.yearIndex = i;
       }
 
       // Saison/Episode (S01, S01E01, etc.)
-      if (/^S\d{1,2}(E\d{1,2})?$/i.test(part)) {
+      if (Patterns.SEASON_PATTERN.test(part)) {
         result.seasonEpisode = part;
         result.seasonEpisodeIndex = i;
       }
@@ -73,7 +67,7 @@ const SerieTitleParser = {
       // Flags composés (ex: DIRECTORS.CUT)
       if (i < parts.length - 1) {
         const composedFlag = `${upperPart}.${parts[i + 1].toUpperCase()}`;
-        if (flagPatterns.includes(composedFlag)) {
+        if (Patterns.FLAGS.includes(composedFlag)) {
           result.flags.push(`${part}.${parts[i + 1]}`);
           result.flagsIndex.push(i);
           i++; // Skip next part as it's part of the composed flag
@@ -82,16 +76,15 @@ const SerieTitleParser = {
       }
 
       // Flags simples
-      if (flagPatterns.includes(upperPart)) {
+      if (Patterns.FLAGS.includes(upperPart)) {
         result.flags.push(part);
         result.flagsIndex.push(i);
       }
     }
 
     // Recherche de la langue
-    const languagePatterns = ['TRUEFRENCH', 'MULTI', 'VOSTFR', 'VFF', 'VFQ', 'VFI', 'VF2', 'VOF'];
     for (let i = 0; i < parts.length; i++) {
-      if (languagePatterns.includes(parts[i].toUpperCase())) {
+      if (Patterns.LANGUAGES.includes(parts[i].toUpperCase())) {
         result.language = parts[i];
         result.languageIndex = i;
         break;
@@ -99,9 +92,8 @@ const SerieTitleParser = {
     }
 
     // Recherche de la résolution
-    const resolutionPatterns = ['2160p', '1080p', '720p', '576p', '480p'];
     for (let i = 0; i < parts.length; i++) {
-      if (resolutionPatterns.includes(parts[i])) {
+      if (Patterns.RESOLUTIONS.includes(parts[i])) {
         result.resolution = parts[i];
         result.resolutionIndex = i;
         break;
@@ -109,10 +101,9 @@ const SerieTitleParser = {
     }
 
     // Recherche de la source
-    const sourcePatterns = ['BLURAY', 'WEB', 'WEBRIP', 'WEBDL', 'WEB-DL', 'DVDRIP', 'BDRIP', 'HDRIP', 'DVD'];
     for (let i = 0; i < parts.length; i++) {
       const upperPart = parts[i].toUpperCase();
-      if (sourcePatterns.includes(upperPart)) {
+      if (Patterns.SOURCES.includes(upperPart)) {
         result.source = parts[i];
         result.sourceIndex = i;
         break;
@@ -120,18 +111,15 @@ const SerieTitleParser = {
     }
 
     // Recherche des détails optionnels
-    const detailPatterns = ['4KLIGHT', 'REMUX', 'BDMV', 'DV', 'HDR10', 'HDR10PLUS', 'HDR', 'SDR', 'DOLBYVISION'];
     for (const part of parts) {
       const upperPart = part.toUpperCase();
-      if (detailPatterns.includes(upperPart)) {
+      if (Patterns.DETAILS.includes(upperPart)) {
         result.details.push(part);
       }
     }
 
     // Recherche du codec audio (peut être composé de plusieurs parties : codec.technologie.canaux)
     // Exemples : AAC.5.1, TRUEHD.ATMOS.7.1, DTS.HD.MA.7.1
-    const audioCodecPatterns = ['TRUEHD', 'DDP', 'AAC', 'AC3', 'DD', 'FLAC', 'DTS', 'MP3', 'EAC3', 'HE-AAC'];
-
     for (let i = 0; i < parts.length; i++) {
       let currentPart = parts[i];
 
@@ -144,7 +132,7 @@ const SerieTitleParser = {
       const upperPart = currentPart.toUpperCase();
 
       // Vérifie si c'est un codec audio
-      if (audioCodecPatterns.includes(upperPart)) {
+      if (Patterns.AUDIO_CODECS.includes(upperPart)) {
         let audioString = currentPart;
         let offset = 0;
 
@@ -160,14 +148,14 @@ const SerieTitleParser = {
           const upperNextPart = nextPart.toUpperCase();
 
           // Technologies/formats : HD, MA, ATMOS
-          if (['HD', 'MA', 'ATMOS'].includes(upperNextPart)) {
+          if (Patterns.AUDIO_TECHNOLOGIES.includes(upperNextPart)) {
             audioString += `.${nextPart}`;
             offset++;
             continue;
           }
 
           // Canaux audio (format X.Y comme 5.1, 7.1, 2.0)
-          if (/^\d+\.\d+$/.test(upperNextPart)) {
+          if (Patterns.AUDIO_CHANNELS_PATTERN.test(upperNextPart)) {
             audioString += `.${nextPart}`;
             offset++;
             break; // Les canaux sont le dernier élément
@@ -184,7 +172,7 @@ const SerieTitleParser = {
     }
 
     // Recherche du codec vidéo (doit être après le codec audio et avant le tag)
-    const videoCodecPatterns = ['X264', 'X265', 'SVT-AV1', 'AV1', 'HEVC', 'AVC', 'H264', 'H265', 'H266', 'XVID', 'H262', 'MPEG-2', 'MPEG2'];
+    const allVideoCodecs = [...Patterns.VIDEO_CODECS_ACCEPTED, ...Patterns.VIDEO_CODECS_OLD];
 
     for (let i = 0; i < parts.length; i++) {
       let currentPart = parts[i];
@@ -197,7 +185,7 @@ const SerieTitleParser = {
       const upperPart = currentPart.toUpperCase();
 
       // Vérifie les patterns
-      if (videoCodecPatterns.some(codec => upperPart.includes(codec))) {
+      if (allVideoCodecs.some(codec => upperPart.includes(codec))) {
         result.videoCodec = currentPart;
         result.videoCodecIndex = i;
         break;

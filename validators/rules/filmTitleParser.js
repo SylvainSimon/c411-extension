@@ -38,10 +38,7 @@ const FilmTitleParser = {
     }
 
     // Patterns de flags
-    const flagPatterns = [
-      'REPACK', 'PROPER', 'UNCENSORED', 'IMAX', 'UNRATED',
-      'DIRECTORS.CUT', 'EXTENDED.CUT', 'THEATRICAL.CUT', 'UNRATED.CUT', 'FINAL.CUT'
-    ];
+    const flagPatterns = Patterns.FLAGS;
 
     // Recherche de l'année (format YYYY) et des flags
     for (let i = 0; i < parts.length; i++) {
@@ -75,9 +72,8 @@ const FilmTitleParser = {
     }
 
     // Recherche de la langue
-    const languagePatterns = ['TRUEFRENCH', 'MULTI', 'VOSTFR', 'VFF', 'VFQ', 'VFI', 'VF2', 'VOF'];
     for (let i = 0; i < parts.length; i++) {
-      if (languagePatterns.includes(parts[i].toUpperCase())) {
+      if (Patterns.LANGUAGES.includes(parts[i].toUpperCase())) {
         result.language = parts[i];
         result.languageIndex = i;
         break;
@@ -85,9 +81,8 @@ const FilmTitleParser = {
     }
 
     // Recherche de la résolution
-    const resolutionPatterns = ['2160p', '1080p', '720p', '576p', '480p'];
     for (let i = 0; i < parts.length; i++) {
-      if (resolutionPatterns.includes(parts[i])) {
+      if (Patterns.RESOLUTIONS.includes(parts[i])) {
         result.resolution = parts[i];
         result.resolutionIndex = i;
         break;
@@ -95,10 +90,9 @@ const FilmTitleParser = {
     }
 
     // Recherche de la source
-    const sourcePatterns = ['BLURAY', 'WEB', 'WEBRIP', 'WEBDL', 'WEB-DL', 'DVDRIP', 'BDRIP', 'HDRIP', 'DVD'];
     for (let i = 0; i < parts.length; i++) {
       const upperPart = parts[i].toUpperCase();
-      if (sourcePatterns.includes(upperPart)) {
+      if (Patterns.SOURCES.includes(upperPart)) {
         result.source = parts[i];
         result.sourceIndex = i;
         break;
@@ -106,18 +100,15 @@ const FilmTitleParser = {
     }
 
     // Recherche des détails optionnels
-    const detailPatterns = ['4KLIGHT', 'REMUX', 'BDMV', 'DV', 'HDR10', 'HDR10PLUS', 'HDR', 'SDR', 'DOLBYVISION'];
     for (const part of parts) {
       const upperPart = part.toUpperCase();
-      if (detailPatterns.includes(upperPart)) {
+      if (Patterns.DETAILS.includes(upperPart)) {
         result.details.push(part);
       }
     }
 
     // Recherche du codec audio (peut être composé de plusieurs parties : codec.technologie.canaux)
     // Exemples : AAC.5.1, TRUEHD.ATMOS.7.1, DTS.HD.MA.7.1
-    const audioCodecPatterns = ['TRUEHD', 'DDP', 'AAC', 'AC3', 'DD', 'FLAC', 'DTS', 'MP3', 'EAC3', 'HE-AAC'];
-
     for (let i = 0; i < parts.length; i++) {
       let currentPart = parts[i];
 
@@ -130,7 +121,7 @@ const FilmTitleParser = {
       const upperPart = currentPart.toUpperCase();
 
       // Vérifie si c'est un codec audio
-      if (audioCodecPatterns.includes(upperPart)) {
+      if (Patterns.AUDIO_CODECS.includes(upperPart)) {
         let audioString = currentPart;
         let offset = 0;
 
@@ -146,14 +137,14 @@ const FilmTitleParser = {
           const upperNextPart = nextPart.toUpperCase();
 
           // Technologies/formats : HD, MA, ATMOS
-          if (['HD', 'MA', 'ATMOS'].includes(upperNextPart)) {
+          if (Patterns.AUDIO_TECHNOLOGIES.includes(upperNextPart)) {
             audioString += `.${nextPart}`;
             offset++;
             continue;
           }
 
           // Canaux audio (format X.Y comme 5.1, 7.1, 2.0)
-          if (/^\d+\.\d+$/.test(upperNextPart)) {
+          if (Patterns.AUDIO_CHANNELS_PATTERN.test(upperNextPart)) {
             audioString += `.${nextPart}`;
             offset++;
             break; // Les canaux sont le dernier élément
@@ -170,7 +161,7 @@ const FilmTitleParser = {
     }
 
     // Recherche du codec vidéo (doit être après le codec audio et avant le tag)
-    const videoCodecPatterns = ['X264', 'X265', 'SVT-AV1', 'AV1', 'HEVC', 'AVC', 'H264', 'H265', 'H266', 'XVID', 'H262', 'MPEG-2', 'MPEG2'];
+    const allVideoCodecs = [...Patterns.VIDEO_CODECS_ACCEPTED, ...Patterns.VIDEO_CODECS_OLD];
 
     for (let i = 0; i < parts.length; i++) {
       let currentPart = parts[i];
@@ -183,7 +174,7 @@ const FilmTitleParser = {
       const upperPart = currentPart.toUpperCase();
 
       // Vérifie les patterns
-      if (videoCodecPatterns.some(codec => upperPart.includes(codec))) {
+      if (allVideoCodecs.some(codec => upperPart.includes(codec))) {
         result.videoCodec = currentPart;
         result.videoCodecIndex = i;
         break;
