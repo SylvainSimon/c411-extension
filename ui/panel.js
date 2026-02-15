@@ -6,12 +6,34 @@ const CompliancePanel = {
    * Crée et affiche le panneau de validation
    * @param {string} title - Le titre analysé
    * @param {Array} issues - Liste des problèmes détectés
+   * @param {Object} categoryInfo - Informations sur la catégorie
    */
-  create(title, issues) {
+  create(title, issues, categoryInfo) {
     const panel = document.createElement('div');
     panel.id = 'c411-compliance-panel';
 
     const isValid = issues.length === 0;
+
+    // Détermine le titre du panneau selon la catégorie
+    let panelTitle = 'Vérification du titre';
+    let categoryLabel = '';
+
+    if (categoryInfo) {
+      categoryLabel = `<div class="c411-meta" style="margin-bottom: 8px;">Catégorie : <strong>${categoryInfo.category}</strong> › <strong>${categoryInfo.subcategory}</strong></div>`;
+
+      // Personnalise le titre selon la sous-catégorie
+      switch (categoryInfo.subcategory) {
+        case 'Film':
+          panelTitle = 'Vérification Film';
+          break;
+        case 'Série TV':
+          panelTitle = 'Vérification Série TV';
+          break;
+        default:
+          panelTitle = `Vérification ${categoryInfo.subcategory}`;
+          break;
+      }
+    }
 
     let issuesHTML = '';
     if (!isValid) {
@@ -19,8 +41,7 @@ const CompliancePanel = {
       issues.forEach(issue => {
         issuesHTML += `
           <li class="c411-issue">
-            <strong>${issue.rule}</strong>
-            ${issue.message}
+            ${issue.rule}
           </li>
         `;
       });
@@ -29,11 +50,10 @@ const CompliancePanel = {
 
     panel.innerHTML = `
       <div class="c411-head">
-        <div class="c411-head-title">Vérification du titre</div>
+        <div class="c411-head-title">${panelTitle}</div>
       </div>
       <div class="c411-body">
-        <div class="c411-meta">Titre analysé :</div>
-        <div class="c411-title" style="color: #1e293b;">${this.escapeHtml(title)}</div>
+        ${categoryLabel}
 
         ${isValid
           ? '<div class="c411-ok">✓ Le titre est conforme</div>'

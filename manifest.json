@@ -8,7 +8,11 @@
       "matches": ["https://c411.org/*"],
       "js": [
         "validators/rules/commonRules.js",
+        "validators/rules/sharedRules.js",
+        "validators/rules/filmTitleParser.js",
         "validators/rules/filmRules.js",
+        "validators/rules/serieTitleParser.js",
+        "validators/rules/serieRules.js",
         "validators/validatorFactory.js",
         "validators/titleValidator.js",
         "utils/categoryDetector.js",

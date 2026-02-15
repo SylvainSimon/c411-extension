@@ -9,13 +9,18 @@ const MessageGenerator = {
    * @returns {string} Message formaté prêt à être copié
    */
   generate(title, issues) {
-    let message = `Bonjour,\n\nLe titre de votre torrent présente les problèmes suivants :\n\n`;
+    let message = `Salut,\n\n`;
+    message += `Merci pour ta participation et d'avoir proposé ce torrent ! `;
+    message += `Cependant, on a détecté quelques erreurs dans le nommage :\n\n`;
 
     issues.forEach((issue, index) => {
       message += `${index + 1}. ${issue.rule} : ${issue.suggestion}\n`;
     });
 
-    message += `\nTitre actuel : "${title}"\n\nMerci de corriger ces problèmes.`;
+    message += `\nN'hésite pas à consulter les règles de nommage complètes sur https://c411.org/wiki/nommage\n\n`;
+    message += `Une fois les modifications effectuées, ton torrent sera de nouveau analysé pour validation. `;
+    message += `Merci de bien vérifier toutes les règles pour gagner du temps pour toi et pour les autres, `;
+    message += `car il y a beaucoup de torrents à valider !`;
 
     return message;
   }

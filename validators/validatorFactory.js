@@ -20,13 +20,14 @@ const ValidatorFactory = {
 
     switch (categoryInfo.subcategory) {
       case 'Film':
+      case 'Animation':
         rules.push(...FilmRules.getRules());
         break;
 
-      // Ajouter d'autres cas pour d'autres sous-catégories
-      // case 'Série TV':
-      //   rules.push(...SerieTVRules.getRules());
-      //   break;
+      case 'Série TV':
+      case 'Animation Série':
+        rules.push(...SerieRules.getRules());
+        break;
 
       default:
         // Pas de règles spécifiques pour cette sous-catégorie

@@ -49,6 +49,12 @@
     // Détecte la catégorie et sous-catégorie
     const categoryInfo = CategoryDetector.detect();
 
+    // On ne gère que les films (incluant Animation) et les séries
+    const supportedCategories = ['Film', 'Animation', 'Série TV', 'Animation Série'];
+    if (!categoryInfo || !supportedCategories.includes(categoryInfo.subcategory)) {
+      return;
+    }
+
     // Valide le titre en fonction de la catégorie
     const issues = TitleValidator.validate(title, categoryInfo);
 
