@@ -174,8 +174,18 @@ const SharedRules = {
 
   /**
    * Vérifie la correspondance avec le titre TMDB si disponible
+   * @param {string} title - Le titre à vérifier
+   * @param {Object} parser - Le parser à utiliser (FilmTitleParser ou AnimationTitleParser)
    */
-  checkTmdbTitle(title) {
+  checkTmdbTitle(title, parser) {
+    // Si le parser est fourni et que c'est une collection, skip la vérification TMDB
+    if (parser) {
+      const parsed = parser.parse(title);
+      if (parsed.isCollection) {
+        return null; // Pas de vérification TMDB pour les collections
+      }
+    }
+
     const tmdbTitle = TmdbDetector.detectTmdbTitle();
 
     // Si pas de titre TMDB trouvé, pas d'erreur

@@ -1,6 +1,7 @@
 /**
  * Parser pour analyser la structure d'un titre de film
  * Format attendu : [Titre].ANNEE.[Flags?].[Langue].[Résolution].[Source].[Détails?].[Audio].[Vidéo]-[TAG]
+ * Format collection : [Titre].COLLECTION.(YYYY-YYYY).[Langue].[Résolution].[Source].[Détails?].[Audio].[Vidéo]-[TAG]
  */
 const FilmTitleParser = {
   /**
@@ -13,6 +14,10 @@ const FilmTitleParser = {
     const result = {
       raw: title,
       parts: parts,
+      isCollection: false,
+      collectionIndex: -1,
+      yearRange: null,
+      yearRangeIndex: -1,
       year: null,
       yearIndex: -1,
       flags: [],
@@ -40,12 +45,35 @@ const FilmTitleParser = {
     // Patterns de flags
     const flagPatterns = Patterns.FLAGS;
 
+    // Recherche de COLLECTION et de l'intervalle d'années
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      const upperPart = part.toUpperCase();
+
+      // Détection de COLLECTION
+      if (upperPart === 'COLLECTION') {
+        result.isCollection = true;
+        result.collectionIndex = i;
+
+        // L'intervalle d'années doit être juste après : (YYYY-YYYY)
+        if (i + 1 < parts.length) {
+          const nextPart = parts[i + 1];
+          const yearRangeMatch = nextPart.match(/^\((\d{4})-(\d{4})\)$/);
+          if (yearRangeMatch) {
+            result.yearRange = nextPart;
+            result.yearRangeIndex = i + 1;
+          }
+        }
+        break;
+      }
+    }
+
     // Recherche de l'année (format YYYY) et des flags
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i];
 
-      // Année
-      if (/^\d{4}$/.test(part) && result.year === null) {
+      // Année (seulement si ce n'est pas une collection)
+      if (!result.isCollection && /^\d{4}$/.test(part) && result.year === null) {
         result.year = part;
         result.yearIndex = i;
       }
