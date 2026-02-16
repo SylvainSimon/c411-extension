@@ -54,8 +54,13 @@ const TmdbDetector = {
       .replace(/\s+/g, '.')
       // Supprime les accents
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-      // Supprime les caractères spéciaux (sauf points, tirets et apostrophes)
-      .replace(/[^\w.\-']/g, '')
+      // Remplace les tirets par des points (ex: "X-Men" -> "X.Men")
+      // Les tirets dans les titres peuvent être remplacés par des points
+      .replace(/-/g, '.')
+      // Remplace les parenthèses par des points (ex: "Histoire(s)" -> "Histoire.s.")
+      .replace(/[()]/g, '.')
+      // Supprime les caractères spéciaux (sauf points et apostrophes, tirets et parenthèses déjà gérés)
+      .replace(/[^\w.']/g, '')
       // Remplace les apostrophes par des points pour la comparaison (les deux formats sont valides)
       .replace(/'/g, '.')
       // Remplace les points multiples par un seul point (ex: "Predator..Badlands" -> "Predator.Badlands")
@@ -110,9 +115,9 @@ const TmdbDetector = {
         break;
       }
 
-      // Si c'est INTEGRALE, on regarde la partie suivante pour savoir si c'est un flag ou partie du titre
-      // INTEGRALE est un flag si suivi d'une année, d'une langue, résolution ou source
-      if (upperPart === 'INTEGRALE' && i < parts.length - 1) {
+      // Si c'est INTEGRALE ou COMPLETE, on regarde la partie suivante pour savoir si c'est un flag ou partie du titre
+      // INTEGRALE/COMPLETE est un flag si suivi d'une année, d'une langue, résolution ou source
+      if ((upperPart === 'INTEGRALE' || upperPart === 'COMPLETE') && i < parts.length - 1) {
         const nextPart = parts[i + 1];
         const nextUpper = nextPart.toUpperCase();
 
@@ -136,8 +141,8 @@ const TmdbDetector = {
         break;
       }
 
-      // Si c'est un flag connu (sauf INTEGRALE qui est géré ci-dessus), on s'arrête
-      if (Patterns.FLAGS.includes(upperPart) && upperPart !== 'INTEGRALE') {
+      // Si c'est un flag connu (sauf INTEGRALE et COMPLETE qui sont gérés ci-dessus), on s'arrête
+      if (Patterns.FLAGS.includes(upperPart) && upperPart !== 'INTEGRALE' && upperPart !== 'COMPLETE') {
         break;
       }
 
@@ -202,8 +207,8 @@ const TmdbDetector = {
         break;
       }
 
-      // Si c'est un flag connu (sauf INTEGRALE qui est géré ci-dessus), on s'arrête
-      if (Patterns.FLAGS.includes(upperPart) && upperPart !== 'INTEGRALE') {
+      // Si c'est un flag connu (sauf INTEGRALE et COMPLETE qui sont gérés ci-dessus), on s'arrête
+      if (Patterns.FLAGS.includes(upperPart) && upperPart !== 'INTEGRALE' && upperPart !== 'COMPLETE') {
         break;
       }
 

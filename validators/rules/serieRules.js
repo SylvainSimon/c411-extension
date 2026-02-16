@@ -11,6 +11,7 @@ const SerieRules = {
     return [
       (title) => SharedRules.checkTmdbTitle(title),
       this.checkSeasonEpisode,
+      this.checkCompleteKeyword,
       (title) => SharedRules.checkLanguage(title, SerieTitleParser),
       (title) => SharedRules.checkResolution(title, SerieTitleParser),
       (title) => SharedRules.checkSource(title, SerieTitleParser),
@@ -36,6 +37,25 @@ const SerieRules = {
         message: 'Le titre ne contient ni indication de saison/épisode ni le mot INTEGRALE.',
         suggestion: 'Ajoute le numéro de saison (S01, S02...), de saison et épisode (S01E01, S02E05...) ou le mot INTEGRALE pour une série complète.'
       };
+    }
+
+    return null;
+  },
+
+  /**
+   * Vérifie l'usage incorrect de COMPLETE au lieu de INTEGRALE
+   */
+  checkCompleteKeyword(title) {
+    const parts = title.split('.');
+
+    for (const part of parts) {
+      if (part.toUpperCase() === 'COMPLETE') {
+        return {
+          rule: '❌ COMPLETE invalide',
+          message: 'Le mot COMPLETE est détecté dans le titre.',
+          suggestion: 'Pour une intégrale de série, utilise le mot INTEGRALE et non COMPLETE.'
+        };
+      }
     }
 
     return null;

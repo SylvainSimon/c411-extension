@@ -58,8 +58,8 @@ const SerieTitleParser = {
         result.seasonEpisodeIndex = i;
       }
 
-      // INTEGRALE
-      if (upperPart === 'INTEGRALE') {
+      // INTEGRALE ou COMPLETE (COMPLETE est incorrect mais on le détecte pour éviter l'erreur de saison manquante)
+      if (upperPart === 'INTEGRALE' || upperPart === 'COMPLETE') {
         result.isIntegrale = true;
         result.integraleIndex = i;
       }
