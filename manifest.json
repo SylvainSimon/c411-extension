@@ -11,6 +11,12 @@
     "https://www.yggtorrent.org/*",
     "https://yggtorrent.org/*"
   ],
+  "web_accessible_resources": [
+    {
+      "resources": ["presentation.txt"],
+      "matches": ["https://www.yggtorrent.org/*", "https://yggtorrent.org/*"]
+    }
+  ],
   "content_scripts": [
     {
       "matches": ["https://c411.org/*"],
@@ -35,7 +41,7 @@
     },
     {
       "matches": ["https://www.yggtorrent.org/*", "https://yggtorrent.org/*"],
-      "js": ["ygg-tmdb-detector.js", "ygg-nfo-downloader.js"],
+      "js": ["ygg-tmdb-detector.js", "ygg-nfo-downloader.js", "ygg-bbcode-generator.js"],
       "run_at": "document_idle"
     }
   ]
