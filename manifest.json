@@ -35,7 +35,7 @@
     },
     {
       "matches": ["https://www.yggtorrent.org/*", "https://yggtorrent.org/*"],
-      "js": ["ygg-nfo-downloader.js"],
+      "js": ["ygg-tmdb-detector.js", "ygg-nfo-downloader.js"],
       "run_at": "document_idle"
     }
   ]
