@@ -52,6 +52,9 @@ const TmdbDetector = {
       .replace(/\bET\b/gi, 'ET')
       // Remplace les espaces par des points
       .replace(/\s+/g, '.')
+      // Remplace les ligatures spéciales (œ -> oe, æ -> ae)
+      .replace(/œ/gi, 'oe')
+      .replace(/æ/gi, 'ae')
       // Supprime les accents
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
       // Remplace les tirets par des points (ex: "X-Men" -> "X.Men")
@@ -101,7 +104,8 @@ const TmdbDetector = {
       const upperPart = part.toUpperCase();
 
       // Si c'est une année valide (4 chiffres), on s'arrête
-      if (Patterns.YEAR_PATTERN.test(part)) {
+      // SAUF si c'est le premier élément (ex: "1917" est le titre du film)
+      if (Patterns.YEAR_PATTERN.test(part) && i > 0) {
         break;
       }
 

@@ -3,6 +3,14 @@
   "name": "C411 Conformite",
   "version": "0.1.0",
   "description": "Verifie la conformite des torrents C411 et aide au signalement.",
+  "permissions": [
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://c411.org/*",
+    "https://www.yggtorrent.org/*",
+    "https://yggtorrent.org/*"
+  ],
   "content_scripts": [
     {
       "matches": ["https://c411.org/*"],
@@ -23,6 +31,11 @@
         "content.js"
       ],
       "css": ["panel.css"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.yggtorrent.org/*", "https://yggtorrent.org/*"],
+      "js": ["ygg-nfo-downloader.js"],
       "run_at": "document_idle"
     }
   ]
