@@ -32,9 +32,12 @@
         "validators/titleValidator.js",
         "utils/categoryDetector.js",
         "utils/tmdbDetector.js",
+        "utils/nuxtDataParser.js",
+        "utils/c411ApiClient.js",
         "utils/messageGenerator.js",
         "ui/panel.js",
-        "content.js"
+        "content.js",
+        "user-id-display.js"
       ],
       "css": ["panel.css"],
       "run_at": "document_idle"
