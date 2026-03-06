@@ -14,7 +14,7 @@
   "web_accessible_resources": [
     {
       "resources": ["presentation.txt"],
-      "matches": ["https://www.yggtorrent.org/*", "https://yggtorrent.org/*"]
+      "matches": ["https://www.yggtorrent.org/*", "https://yggtorrent.org/*", "https://c411.org/*"]
     }
   ],
   "content_scripts": [
@@ -37,7 +37,8 @@
         "utils/messageGenerator.js",
         "ui/panel.js",
         "content.js",
-        "user-id-display.js"
+        "user-id-display.js",
+        "c411-bbcode-generator.js"
       ],
       "css": ["panel.css"],
       "run_at": "document_idle"
