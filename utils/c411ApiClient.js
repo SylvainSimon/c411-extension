@@ -294,33 +294,36 @@ const C411ApiClient = {
         if (snatcherData) {
           // Recalcule avec les données précises
           const actualUploaded = snatcherData.actualUploaded;
-          const actualDownloaded = snatcherData.actualDownloaded || suspiciousTorrent.size;
-          const actualRatio = actualDownloaded > 0 ? actualUploaded / actualDownloaded : -1;
+          const actualDownloaded = snatcherData.actualDownloaded; // Quantité réellement téléchargée
+          // Pour le ratio, on utilise la taille du torrent comme base (pas actualDownloaded)
+          const torrentSize = suspiciousTorrent.size;
+          const actualRatio = torrentSize > 0 ? actualUploaded / torrentSize : -1;
 
-          // Calcule le temps écoulé entre firstAction et lastAction (dernière réannonce)
+          // Calcule le temps écoulé entre firstAction et lastAction (période totale)
           const firstAction = new Date(snatcherData.firstAction);
           const lastAction = new Date(snatcherData.lastAction);
-          const elapsedSeconds = (lastAction - firstAction) / 1000;
-          const elapsedDays = elapsedSeconds / (3600 * 24);
+          const elapsedMs = lastAction - firstAction;
+          const elapsedSeconds = elapsedMs / 1000;
 
           // Utilise seedingTime (temps réel de seed) pour calculer le débit réel nécessaire
           // seedingTime est en secondes et représente le temps effectif où l'utilisateur a seedé
           const seedingTimeSeconds = snatcherData.seedingTime || 0;
-          const seedingTimeDays = seedingTimeSeconds / (3600 * 24);
 
           // Calcule le débit moyen basé sur le temps de seed réel
-          const uploadSpeedBps = seedingTimeSeconds > 0 ? actualUploaded / seedingTimeSeconds : 0;
+          // Protection contre division par zéro : si seedingTime < 60 secondes, on considère 60 secondes minimum
+          const effectiveSeedingTime = Math.max(seedingTimeSeconds, 60);
+          const uploadSpeedBps = effectiveSeedingTime > 0 ? actualUploaded / effectiveSeedingTime : 0;
           const uploadSpeedMbps = (uploadSpeedBps * 8) / (1024 * 1024);
 
-          // Met à jour les données
+          // Met à jour les données (on stocke tout en secondes pour une gestion précise)
           suspiciousTorrent.snatcherData = snatcherData;
           suspiciousTorrent.hasSnatcherData = true;
           suspiciousTorrent.actualUploaded = actualUploaded;
           suspiciousTorrent.actualDownloaded = actualDownloaded;
           suspiciousTorrent.actualRatio = actualRatio;
           suspiciousTorrent.actualRatioFormatted = actualRatio >= 0 ? actualRatio.toFixed(2) : 'N/A';
-          suspiciousTorrent.elapsedDays = elapsedDays.toFixed(1);
-          suspiciousTorrent.seedingTimeDays = seedingTimeDays.toFixed(1);
+          suspiciousTorrent.elapsedSeconds = elapsedSeconds; // Période totale en secondes
+          suspiciousTorrent.seedingTimeSeconds = seedingTimeSeconds; // Temps de seed réel en secondes
           suspiciousTorrent.uploadSpeedMbps = uploadSpeedMbps.toFixed(0);
           suspiciousTorrent.firstAction = snatcherData.firstAction;
           suspiciousTorrent.lastAction = snatcherData.lastAction;
