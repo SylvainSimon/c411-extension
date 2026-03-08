@@ -86,101 +86,45 @@ const C411ApiClient = {
   },
 
   /**
-   * Récupère les téléchargements d'un utilisateur
+   * Récupère l'historique des snatches d'un utilisateur
    * @param {number} userId - ID de l'utilisateur
    * @param {Object} params - Paramètres de pagination/tri
    * @returns {Promise<Object|null>}
    */
-  async getUserDownloads(userId, params = {}) {
+  async getUserSnatchHistory(userId, params = {}) {
     const {
       page = 1,
-      perPage = 20,
-      sortBy = 'uploaded',
+      perPage = 50,
+      sortBy = 'lastAction',
       sortOrder = 'desc'
     } = params;
 
-    const endpoint = `/api/users/${userId}/downloads?page=${page}&perPage=${perPage}&sortBy=${sortBy}&sortOrder=${sortOrder}`;
+    const endpoint = `/api/users/${userId}/snatch-history?page=${page}&perPage=${perPage}&sortBy=${sortBy}&sortOrder=${sortOrder}`;
     return await this.call(endpoint);
   },
 
   /**
-   * Récupère les informations d'un torrent
-   * @param {string} infoHash - Hash du torrent
-   * @returns {Promise<Object|null>}
-   */
-  async getTorrentInfo(infoHash) {
-    const endpoint = `/api/torrents/${infoHash}`;
-    return await this.call(endpoint);
-  },
-
-  /**
-   * Récupère les snatchers d'un torrent avec pagination automatique
-   * @param {string} infoHash - Hash du torrent
-   * @returns {Promise<Array>} Liste de tous les snatchers
-   */
-  async getTorrentSnatchers(infoHash) {
-    let allSnatchers = [];
-    let page = 1;
-    let totalPages = 1;
-
-    console.log(`[C411ApiClient] Récupération des snatchers pour ${infoHash}...`);
-
-    while (page <= totalPages) {
-      const endpoint = `/api/torrents/${infoHash}/snatchers?page=${page}&perPage=50&sortBy=uploaded&sortOrder=desc`;
-      const response = await this.call(endpoint);
-
-      if (!response || !response.data) {
-        console.error(`[C411ApiClient] Erreur lors de la récupération des snatchers page ${page}`);
-        break;
-      }
-
-      allSnatchers = allSnatchers.concat(response.data);
-      totalPages = response.meta.totalPages;
-      page++;
-
-      // Petit délai pour ne pas surcharger l'API
-      if (page <= totalPages) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-    }
-
-    console.log(`[C411ApiClient] ${allSnatchers.length} snatchers récupérés`);
-    return allSnatchers;
-  },
-
-  /**
-   * Trouve les données précises d'un utilisateur pour un torrent spécifique
-   * @param {string} infoHash - Hash du torrent
-   * @param {number} userId - ID de l'utilisateur
-   * @returns {Promise<Object|null>} Données du snatcher ou null
-   */
-  async findUserSnatcherData(infoHash, userId) {
-    const snatchers = await this.getTorrentSnatchers(infoHash);
-    return snatchers.find(s => s.userId === userId) || null;
-  },
-
-  /**
-   * Récupère TOUS les téléchargements d'un utilisateur (pagination automatique)
+   * Récupère TOUT l'historique des snatches d'un utilisateur (pagination automatique)
    * @param {number} userId - ID de l'utilisateur
    * @param {Object} params - Paramètres de tri
-   * @returns {Promise<Array>} Tous les téléchargements
+   * @returns {Promise<Array>} Tous les snatches
    */
-  async getAllUserDownloads(userId, params = {}) {
+  async getAllUserSnatchHistory(userId, params = {}) {
     const {
-      sortBy = 'uploaded',
+      sortBy = 'lastAction',
       sortOrder = 'desc'
     } = params;
 
-    let allDownloads = [];
+    let allSnatches = [];
     let page = 1;
     let totalPages = 1;
 
-    console.log('[C411ApiClient] Récupération de tous les téléchargements...');
+    console.log('[C411ApiClient] Récupération de tout l\'historique des snatches...');
 
     while (page <= totalPages) {
       console.log(`[C411ApiClient] Page ${page}/${totalPages}`);
 
-      const response = await this.getUserDownloads(userId, {
+      const response = await this.getUserSnatchHistory(userId, {
         page,
         perPage: 50,
         sortBy,
@@ -192,7 +136,7 @@ const C411ApiClient = {
         break;
       }
 
-      allDownloads = allDownloads.concat(response.data);
+      allSnatches = allSnatches.concat(response.data);
       totalPages = response.meta.totalPages;
       page++;
 
@@ -202,12 +146,12 @@ const C411ApiClient = {
       }
     }
 
-    console.log(`[C411ApiClient] ${allDownloads.length} téléchargements récupérés`);
-    return allDownloads;
+    console.log(`[C411ApiClient] ${allSnatches.length} snatches récupérés`);
+    return allSnatches;
   },
 
   /**
-   * Analyse les téléchargements et trouve les torrents suspects
+   * Analyse l'historique des snatches et trouve les torrents suspects
    * @param {number} userId - ID de l'utilisateur
    * @param {Object} thresholds - Seuils de détection
    * @returns {Promise<Object>} Statistiques et torrents suspects
@@ -218,16 +162,16 @@ const C411ApiClient = {
       minUploadedTB = 2,       // Upload minimum en TB pour être suspect
     } = thresholds;
 
-    console.log('[C411ApiClient] Analyse des téléchargements suspects...');
+    console.log('[C411ApiClient] Analyse des snatches suspects...');
     console.log('[C411ApiClient] Seuils:', { minRatio, minUploadedTB });
 
-    const downloads = await this.getAllUserDownloads(userId, {
-      sortBy: 'uploaded',
+    const snatches = await this.getAllUserSnatchHistory(userId, {
+      sortBy: 'lastAction',
       sortOrder: 'desc'
     });
 
-    if (!downloads || downloads.length === 0) {
-      console.warn('[C411ApiClient] Aucun téléchargement trouvé');
+    if (!snatches || snatches.length === 0) {
+      console.warn('[C411ApiClient] Aucun snatch trouvé');
       return null;
     }
 
@@ -236,121 +180,80 @@ const C411ApiClient = {
     let totalUploaded = 0;
     let totalDownloaded = 0;
 
-    // Analyse chaque téléchargement
-    for (const download of downloads) {
-      totalUploaded += download.uploaded;
-      totalDownloaded += download.size;
+    // Analyse chaque snatch
+    for (const snatch of snatches) {
+      totalUploaded += snatch.actualUploaded;
+      totalDownloaded += snatch.size;
 
       // Évite la division par zéro
-      if (download.size === 0) continue;
+      if (snatch.size === 0) continue;
 
-      const ratio = download.uploaded / download.size;
-      const uploadedTB = download.uploaded / ONE_TB;
+      // Calcule le ratio basé sur la taille du torrent (pas actualDownloaded)
+      const ratio = snatch.actualUploaded / snatch.size;
+      const uploadedTB = snatch.actualUploaded / ONE_TB;
 
-      // Calcule le temps écoulé depuis le téléchargement
-      const downloadedAt = new Date(download.downloadedAt);
-      const now = new Date();
-      const elapsedSeconds = (now - downloadedAt) / 1000;
-      const elapsedHours = elapsedSeconds / 3600;
-      const elapsedDays = elapsedHours / 24;
+      // Détecte si le téléchargement dépasse la taille du torrent (très suspect)
+      const downloadExceedsTorrentSize = snatch.actualDownloaded > snatch.size;
+      const downloadRatio = snatch.size > 0 ? snatch.actualDownloaded / snatch.size : 0;
 
-      // Calcule le débit moyen d'upload (en octets par seconde)
-      const uploadSpeedBps = elapsedSeconds > 0 ? download.uploaded / elapsedSeconds : 0;
-      const uploadSpeedMbps = (uploadSpeedBps * 8) / (1024 * 1024); // Convertit en Mbps
+      // Calcule le temps écoulé entre firstAction et lastAction (période totale)
+      const firstAction = new Date(snatch.firstAction);
+      const lastAction = new Date(snatch.lastAction);
+      const elapsedMs = lastAction - firstAction;
+      const elapsedSeconds = elapsedMs / 1000;
+
+      // Utilise seedingTime (temps réel de seed) pour calculer le débit réel nécessaire
+      const seedingTimeSeconds = snatch.seedingTime || 0;
+
+      // Calcule le débit moyen basé sur le temps de seed réel
+      // Protection contre division par zéro : si seedingTime < 60 secondes, on considère 60 secondes minimum
+      const effectiveSeedingTime = Math.max(seedingTimeSeconds, 60);
+      const uploadSpeedBps = effectiveSeedingTime > 0 ? snatch.actualUploaded / effectiveSeedingTime : 0;
+      const uploadSpeedMbps = (uploadSpeedBps * 8) / (1024 * 1024);
 
       // Critères de suspicion
       const isSuspiciousRatio = ratio >= minRatio;
       const isSuspiciousUpload = uploadedTB >= minUploadedTB;
       const isSuspiciousSpeed = uploadSpeedMbps > 1000; // Plus de 1 Gbps en moyenne est suspect
+      const isSuspiciousDownload = downloadExceedsTorrentSize; // Téléchargement > taille du torrent
 
-      if (isSuspiciousRatio || isSuspiciousUpload || isSuspiciousSpeed) {
-        // Prépare l'objet avec les données de base
+      if (isSuspiciousRatio || isSuspiciousUpload || isSuspiciousSpeed || isSuspiciousDownload) {
+        // Prépare l'objet avec toutes les données (déjà précises depuis snatch-history)
         const suspiciousData = {
-          ...download,
+          ...snatch,
           ratio: ratio,
           ratioFormatted: ratio.toFixed(2),
           uploadedTB: uploadedTB.toFixed(2),
-          elapsedDays: elapsedDays.toFixed(1),
+          elapsedSeconds: elapsedSeconds,
+          seedingTimeSeconds: seedingTimeSeconds,
           uploadSpeedMbps: uploadSpeedMbps.toFixed(0),
+          downloadExceedsTorrentSize: downloadExceedsTorrentSize,
+          downloadRatio: downloadRatio,
+          downloadRatioFormatted: downloadRatio.toFixed(2),
           suspicionReasons: [
             isSuspiciousRatio && `Ratio élevé (${ratio.toFixed(2)})`,
             isSuspiciousUpload && `Upload élevé (${uploadedTB.toFixed(2)} TB)`,
-            isSuspiciousSpeed && `Débit suspect (${uploadSpeedMbps.toFixed(0)} Mbps)`
+            isSuspiciousSpeed && `Débit suspect (${uploadSpeedMbps.toFixed(0)} Mbps)`,
+            isSuspiciousDownload && `Téléchargement > taille torrent (${downloadRatio.toFixed(2)}x)`
           ].filter(Boolean),
-          snatcherData: null, // Sera rempli plus tard
-          hasSnatcherData: false
+          hasSnatcherData: true, // Toujours vrai car on vient de snatch-history
+          actualRatio: ratio,
+          actualRatioFormatted: ratio.toFixed(2)
         };
 
         suspiciousTorrents.push(suspiciousData);
+        console.log(`[C411ApiClient] Torrent suspect: ${snatch.name.substring(0, 50)}... (ratio: ${ratio.toFixed(2)}, upload: ${uploadedTB.toFixed(2)} TB${downloadExceedsTorrentSize ? ', DL > taille!' : ''})`);
       }
-    }
-
-    // Récupère les données précises des snatchers pour les torrents suspects
-    console.log(`[C411ApiClient] Récupération des données snatchers pour ${suspiciousTorrents.length} torrents suspects...`);
-    for (const suspiciousTorrent of suspiciousTorrents) {
-      try {
-        const snatcherData = await this.findUserSnatcherData(suspiciousTorrent.infoHash, userId);
-
-        if (snatcherData) {
-          // Recalcule avec les données précises
-          const actualUploaded = snatcherData.actualUploaded;
-          const actualDownloaded = snatcherData.actualDownloaded; // Quantité réellement téléchargée
-          // Pour le ratio, on utilise la taille du torrent comme base (pas actualDownloaded)
-          const torrentSize = suspiciousTorrent.size;
-          const actualRatio = torrentSize > 0 ? actualUploaded / torrentSize : -1;
-
-          // Calcule le temps écoulé entre firstAction et lastAction (période totale)
-          const firstAction = new Date(snatcherData.firstAction);
-          const lastAction = new Date(snatcherData.lastAction);
-          const elapsedMs = lastAction - firstAction;
-          const elapsedSeconds = elapsedMs / 1000;
-
-          // Utilise seedingTime (temps réel de seed) pour calculer le débit réel nécessaire
-          // seedingTime est en secondes et représente le temps effectif où l'utilisateur a seedé
-          const seedingTimeSeconds = snatcherData.seedingTime || 0;
-
-          // Calcule le débit moyen basé sur le temps de seed réel
-          // Protection contre division par zéro : si seedingTime < 60 secondes, on considère 60 secondes minimum
-          const effectiveSeedingTime = Math.max(seedingTimeSeconds, 60);
-          const uploadSpeedBps = effectiveSeedingTime > 0 ? actualUploaded / effectiveSeedingTime : 0;
-          const uploadSpeedMbps = (uploadSpeedBps * 8) / (1024 * 1024);
-
-          // Met à jour les données (on stocke tout en secondes pour une gestion précise)
-          suspiciousTorrent.snatcherData = snatcherData;
-          suspiciousTorrent.hasSnatcherData = true;
-          suspiciousTorrent.actualUploaded = actualUploaded;
-          suspiciousTorrent.actualDownloaded = actualDownloaded;
-          suspiciousTorrent.actualRatio = actualRatio;
-          suspiciousTorrent.actualRatioFormatted = actualRatio >= 0 ? actualRatio.toFixed(2) : 'N/A';
-          suspiciousTorrent.elapsedSeconds = elapsedSeconds; // Période totale en secondes
-          suspiciousTorrent.seedingTimeSeconds = seedingTimeSeconds; // Temps de seed réel en secondes
-          suspiciousTorrent.uploadSpeedMbps = uploadSpeedMbps.toFixed(0);
-          suspiciousTorrent.firstAction = snatcherData.firstAction;
-          suspiciousTorrent.lastAction = snatcherData.lastAction;
-          suspiciousTorrent.completedAt = snatcherData.completedAt;
-          suspiciousTorrent.seedingTime = snatcherData.seedingTime;
-
-          console.log(`[C411ApiClient] Données snatcher trouvées pour ${suspiciousTorrent.name.substring(0, 50)}...`);
-        } else {
-          console.warn(`[C411ApiClient] Utilisateur non trouvé dans les snatchers pour ${suspiciousTorrent.infoHash}`);
-        }
-      } catch (error) {
-        console.error(`[C411ApiClient] Erreur lors de la récupération des snatchers pour ${suspiciousTorrent.infoHash}:`, error);
-      }
-
-      // Petit délai entre chaque appel
-      await new Promise(resolve => setTimeout(resolve, 200));
     }
 
     // Trie par ratio décroissant
     suspiciousTorrents.sort((a, b) => b.ratio - a.ratio);
 
     // Calcule un score de suspicion global
-    // Plus il y a de torrents suspects, plus le score est élevé
-    const suspicionScore = this.calculateSuspicionScore(suspiciousTorrents, downloads.length);
+    const suspicionScore = this.calculateSuspicionScore(suspiciousTorrents, snatches.length);
 
     const result = {
-      totalDownloads: downloads.length,
+      totalDownloads: snatches.length,
       totalUploaded,
       totalDownloaded,
       globalRatio: totalDownloaded > 0 ? (totalUploaded / totalDownloaded).toFixed(2) : '0',
@@ -362,7 +265,7 @@ const C411ApiClient = {
     };
 
     console.log('[C411ApiClient] Analyse terminée:', {
-      totalDownloads: result.totalDownloads,
+      totalSnatches: result.totalDownloads,
       suspiciousCount: suspiciousTorrents.length,
       globalRatio: result.globalRatio,
       suspicionScore: result.suspicionScore,

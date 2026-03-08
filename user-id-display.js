@@ -181,11 +181,10 @@
   function generateDetailedBanReason(analysis, top5Torrents) {
     const suspectCount = analysis.suspiciousTorrents.length;
     const topTorrent = top5Torrents[0];
-    const displayRatio = topTorrent.hasSnatcherData ? topTorrent.actualRatioFormatted : topTorrent.ratioFormatted;
-    const displayUploaded = topTorrent.hasSnatcherData ? topTorrent.actualUploaded : topTorrent.uploaded;
-    const dataSource = topTorrent.hasSnatcherData ? 'données précises API' : 'données profil';
+    const displayRatio = topTorrent.actualRatioFormatted;
+    const displayUploaded = topTorrent.actualUploaded;
 
-    return `Triche détectée : ${suspectCount} torrent${suspectCount > 1 ? 's' : ''} suspect${suspectCount > 1 ? 's' : ''}, ratio max ${formatNumber(parseFloat(displayRatio))}, ${formatBytes(displayUploaded)} uploadé, débit ${formatSpeed(parseFloat(topTorrent.uploadSpeedMbps))} (${dataSource}).`;
+    return `Triche détectée : ${suspectCount} torrent${suspectCount > 1 ? 's' : ''} suspect${suspectCount > 1 ? 's' : ''}, ratio max ${formatNumber(parseFloat(displayRatio))}, ${formatBytes(displayUploaded)} uploadé, débit ${formatSpeed(parseFloat(topTorrent.uploadSpeedMbps))} (API snatch-history).`;
   }
 
   /**
@@ -248,47 +247,27 @@
 
     // Génère la liste des torrents suspects
     const torrentsListHTML = top5Torrents.map((torrent, index) => {
-      // Utilise les données précises des snatchers si disponibles
-      const displayRatio = torrent.hasSnatcherData ? torrent.actualRatioFormatted : torrent.ratioFormatted;
-      const displayUploaded = torrent.hasSnatcherData ? torrent.actualUploaded : torrent.uploaded;
-      // La taille du torrent est toujours la base de référence
+      // Toutes les données viennent maintenant de snatch-history (API précise)
+      const displayRatio = torrent.actualRatioFormatted;
+      const displayUploaded = torrent.actualUploaded;
       const displaySize = torrent.size;
-      // Info sur ce qui a été réellement téléchargé (peut être 0 si l'utilisateur avait déjà le fichier)
-      const actuallyDownloaded = torrent.hasSnatcherData ? torrent.actualDownloaded : null;
+      const actuallyDownloaded = torrent.actualDownloaded;
 
-      // Calcule et formate explicitement les détails de calcul
-      let calculationDetails = '';
-      if (torrent.hasSnatcherData) {
-        const downloadInfo = actuallyDownloaded !== null && actuallyDownloaded > 0
-          ? `<div><span class="text-gray-500">•</span> <strong>Téléchargement :</strong> ${formatBytes(actuallyDownloaded)} <span class="text-green-400">(fichier téléchargé)</span></div>`
-          : `<div><span class="text-gray-500">•</span> <strong>Téléchargement :</strong> <span class="text-yellow-400">Aucun ou déjà possédé (actualDownloaded = 0)</span></div>`;
-
-        calculationDetails = `
-          <div class="mt-2 p-2 rounded text-[11px] leading-relaxed" style="background-color: rgba(34, 197, 94, 0.08); border-left: 3px solid rgba(34, 197, 94, 0.4);">
-            <div class="font-semibold mb-1.5" style="color: rgb(74, 222, 128);">📊 Calcul avec données précises (API Snatchers)</div>
-            <div class="space-y-0.5 text-gray-400">
-              ${downloadInfo}
-              <div><span class="text-gray-500">•</span> <strong>Ratio :</strong> ${formatBytes(displayUploaded)} uploadé ÷ ${formatBytes(displaySize)} (taille torrent) = <strong style="color: ${colors.textColor};">${formatNumber(parseFloat(displayRatio))}</strong></div>
-              <div><span class="text-gray-500">•</span> <strong>Période complète :</strong> Du ${new Date(torrent.firstAction).toLocaleDateString('fr-FR', {day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'})} au ${new Date(torrent.lastAction).toLocaleDateString('fr-FR', {day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'})} = <strong>${formatDurationFromSeconds(torrent.elapsedSeconds)}</strong></div>
-              <div><span class="text-gray-500">•</span> <strong>Temps de seed réel :</strong> ${formatDurationFromSeconds(torrent.seedingTimeSeconds)} <span class="text-gray-500 italic">(temps effectif où le client torrent était actif)</span></div>
-              <div><span class="text-gray-500">•</span> <strong>Débit nécessaire :</strong> ${formatBytes(displayUploaded)} ÷ ${formatDurationFromSeconds(torrent.seedingTimeSeconds)} de seed = <strong ${parseFloat(torrent.uploadSpeedMbps) > 1000 ? 'style="color: ' + colors.textColor + ';"' : ''}>${formatSpeed(parseFloat(torrent.uploadSpeedMbps))}</strong></div>
-              <div class="mt-1 pt-1 border-t border-gray-700/30 text-[10px] italic text-gray-500">💡 Le débit est calculé sur le temps de seed réel (min 1 minute), pas la période totale</div>
-            </div>
-          </div>
-        `;
-      } else {
-        calculationDetails = `
-          <div class="mt-2 p-2 rounded text-[11px] leading-relaxed" style="background-color: rgba(156, 163, 175, 0.08); border-left: 3px solid rgba(156, 163, 175, 0.4);">
-            <div class="font-semibold mb-1.5" style="color: rgb(156, 163, 175);">📊 Calcul approximatif (Données du profil)</div>
-            <div class="space-y-0.5 text-gray-400">
-              <div><span class="text-gray-500">•</span> <strong>Ratio :</strong> ${formatBytes(displayUploaded)} uploadé ÷ ${formatBytes(displaySize)} (taille torrent) = <strong style="color: ${colors.textColor};">${formatNumber(parseFloat(displayRatio))}</strong></div>
-              <div><span class="text-gray-500">•</span> <strong>Période :</strong> Depuis le ${new Date(torrent.downloadedAt).toLocaleDateString('fr-FR', {day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'})} (downloadedAt) jusqu'à maintenant = <strong>${formatDuration(parseFloat(torrent.elapsedDays))}</strong></div>
-              <div><span class="text-gray-500">•</span> <strong>Débit moyen :</strong> ${formatBytes(displayUploaded)} ÷ ${formatDuration(parseFloat(torrent.elapsedDays))} = <strong ${parseFloat(torrent.uploadSpeedMbps) > 1000 ? 'style="color: ' + colors.textColor + ';"' : ''}>${formatSpeed(parseFloat(torrent.uploadSpeedMbps))}</strong></div>
-              <div class="mt-1 text-yellow-600/80 text-[10px] italic">⚠️ Données moins précises : basées sur les stats du profil utilisateur (pas d'info sur le téléchargement réel)</div>
-            </div>
-          </div>
-        `;
+      // Calcule le vrai temps de téléchargement si completedAt existe
+      let downloadTimeSeconds = 0;
+      if (torrent.completedAt) {
+        const firstActionDate = new Date(torrent.firstAction);
+        const completedDate = new Date(torrent.completedAt);
+        downloadTimeSeconds = (completedDate - firstActionDate) / 1000;
       }
+
+      // Alerte si téléchargement > taille
+      const downloadAlert = torrent.downloadExceedsTorrentSize ? `
+        <div class="mt-2 p-2 rounded text-[11px] leading-relaxed" style="background-color: rgba(239, 68, 68, 0.12); border-left: 3px solid rgba(239, 68, 68, 0.5);">
+          <div class="font-bold text-red-400">🚨 ANOMALIE : Téléchargement > Taille du torrent</div>
+          <div class="text-red-300 mt-1">Le téléchargement (${formatBytes(actuallyDownloaded)}) dépasse la taille du torrent (${formatBytes(displaySize)}) de ${torrent.downloadRatioFormatted}x. Cela indique potentiellement un téléchargement multiple ou une manipulation des données.</div>
+        </div>
+      ` : '';
 
       return `
       <div class="p-3 ${index > 0 ? 'border-t border-gray-700/30' : ''}" style="background-color: rgba(0, 0, 0, 0.15);">
@@ -299,25 +278,43 @@
             <div class="flex items-start gap-2">
               <div class="flex-1">
                 <div class="text-gray-300 font-medium leading-tight mb-1">${torrent.name}</div>
-                <a href="/torrents/${torrent.infoHash}" target="_blank" class="inline-flex items-center gap-1 transition-colors text-[11px]" style="color: rgb(96, 165, 250);" onmouseover="this.style.color='rgb(147, 197, 253)'" onmouseout="this.style.color='rgb(96, 165, 250)'">
-                  <span>🔗</span>
-                  ${torrent.infoHash}
-                </a>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <a href="/torrents/${torrent.infoHash}" target="_blank" class="inline-flex items-center gap-1 transition-colors text-[11px]" style="color: rgb(96, 165, 250);" onmouseover="this.style.color='rgb(147, 197, 253)'" onmouseout="this.style.color='rgb(96, 165, 250)'">
+                    <span>🔗</span>
+                    ${torrent.infoHash}
+                  </a>
+                  <span class="text-[10px] text-gray-500">• Taille: ${formatBytes(displaySize)}</span>
+                </div>
               </div>
-              ${torrent.hasSnatcherData ? '<span class="flex-shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold" style="background-color: rgba(34, 197, 94, 0.2); color: rgb(74, 222, 128);">✓ Données précises</span>' : '<span class="flex-shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold" style="background-color: rgba(156, 163, 175, 0.2); color: rgb(156, 163, 175);">≈ Approximatif</span>'}
+              <span class="flex-shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold" style="background-color: rgba(34, 197, 94, 0.2); color: rgb(74, 222, 128);">✓ Données précises</span>
             </div>
 
-            <!-- Résumé des métriques -->
-            <div class="flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
-              <span class="font-bold" style="color: ${colors.textColor};">Ratio: ${formatNumber(parseFloat(displayRatio))}</span>
-              <span class="text-gray-300">Upload: ${formatBytes(displayUploaded)}</span>
-              <span class="text-gray-400">Taille: ${formatBytes(displaySize)}</span>
-              <span class="text-gray-400">Durée: ${torrent.hasSnatcherData ? formatDurationFromSeconds(torrent.elapsedSeconds) : formatDuration(parseFloat(torrent.elapsedDays))}</span>
-              <span class="${parseFloat(torrent.uploadSpeedMbps) > 1000 ? 'font-bold' : ''}" style="${parseFloat(torrent.uploadSpeedMbps) > 1000 ? 'color: ' + colors.textColor : 'color: rgb(156, 163, 175)'}">Débit: ${formatSpeed(parseFloat(torrent.uploadSpeedMbps))}</span>
+            <!-- Métriques clés -->
+            <div class="space-y-1.5 text-[11px]">
+              <!-- Ligne 1: Volumes et ratio -->
+              <div class="flex flex-wrap gap-x-4 gap-y-1">
+                ${torrent.downloadExceedsTorrentSize ? `<span class="text-red-400 font-bold">⚠️ Download: ${formatBytes(actuallyDownloaded)} (${torrent.downloadRatioFormatted}x la taille)</span>` : actuallyDownloaded > 0 ? `<span class="text-gray-400">Download: ${formatBytes(actuallyDownloaded)}</span>` : `<span class="text-yellow-400">Download: 0 o (déjà possédé)</span>`}
+                <span class="text-gray-300">Upload: ${formatBytes(displayUploaded)}</span>
+                <span class="font-bold" style="color: ${colors.textColor};">Ratio: ${formatNumber(parseFloat(displayRatio))}</span>
+              </div>
+
+              <!-- Ligne 2: Dates -->
+              <div class="flex flex-wrap gap-x-4 gap-y-1 text-gray-400">
+                <span>📅 Début: ${new Date(torrent.firstAction).toLocaleDateString('fr-FR', {day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'})}</span>
+                ${torrent.completedAt ? `<span>✅ Complété: ${new Date(torrent.completedAt).toLocaleDateString('fr-FR', {day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'})}</span>` : ''}
+                <span>🏁 Dernière annonce: ${new Date(torrent.lastAction).toLocaleDateString('fr-FR', {day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'})}</span>
+              </div>
+
+              <!-- Ligne 3: Durées et débit -->
+              <div class="flex flex-wrap gap-x-4 gap-y-1">
+                ${downloadTimeSeconds > 0 ? `<span class="text-gray-400">📥 Temps de téléchargement: ${formatDurationFromSeconds(downloadTimeSeconds)}</span>` : ''}
+                <span class="text-gray-400">🌱 Temps de seed: ${formatDurationFromSeconds(torrent.seedingTimeSeconds)}</span>
+                <span class="${parseFloat(torrent.uploadSpeedMbps) > 1000 ? 'font-bold' : 'text-gray-400'}" style="${parseFloat(torrent.uploadSpeedMbps) > 1000 ? 'color: ' + colors.textColor : ''}">⚡ Débit moyen: ${formatSpeed(parseFloat(torrent.uploadSpeedMbps))}</span>
+              </div>
             </div>
 
-            <!-- Détails de calcul -->
-            ${calculationDetails}
+            <!-- Alerte anomalie -->
+            ${downloadAlert}
           </div>
         </div>
       </div>
