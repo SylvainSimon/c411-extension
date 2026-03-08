@@ -202,8 +202,11 @@ const C411ApiClient = {
       const isNearMultiple = nearestMultiple > 1 &&
                              Math.abs(downloadRatio - nearestMultiple) <= toleranceMargin;
 
-      // Suspect si dépasse ET n'est pas un multiple entier
-      const downloadExceedsTorrentSize = downloadRatio > (1 + toleranceMargin) && !isNearMultiple;
+      // Suspect si dépasse ET n'est pas un multiple entier ET qu'il y a de l'upload
+      // Si actualUploaded = 0, l'anomalie de download n'est pas importante (pas de triche possible)
+      const downloadExceedsTorrentSize = snatch.actualUploaded > 0 &&
+                                          downloadRatio > (1 + toleranceMargin) &&
+                                          !isNearMultiple;
       const isMultipleDownload = isNearMultiple && nearestMultiple > 1;
 
       // Calcule le temps écoulé entre firstAction et lastAction (période totale)
