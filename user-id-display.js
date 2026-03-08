@@ -261,13 +261,25 @@
         downloadTimeSeconds = (completedDate - firstActionDate) / 1000;
       }
 
-      // Alerte si téléchargement > taille
-      const downloadAlert = torrent.downloadExceedsTorrentSize ? `
-        <div class="mt-2 p-2 rounded text-[11px] leading-relaxed" style="background-color: rgba(239, 68, 68, 0.12); border-left: 3px solid rgba(239, 68, 68, 0.5);">
-          <div class="font-bold text-red-400">🚨 ANOMALIE : Téléchargement > Taille du torrent</div>
-          <div class="text-red-300 mt-1">Le téléchargement (${formatBytes(actuallyDownloaded)}) dépasse la taille du torrent (${formatBytes(displaySize)}) de ${torrent.downloadRatioFormatted}x. Cela indique potentiellement un téléchargement multiple ou une manipulation des données.</div>
-        </div>
-      ` : '';
+      // Alerte ou info selon le type de téléchargement
+      let downloadAlert = '';
+      if (torrent.isMultipleDownload) {
+        // Téléchargements multiples légitimes (2x, 3x, 4x...)
+        downloadAlert = `
+          <div class="mt-2 p-2 rounded text-[11px] leading-relaxed" style="background-color: rgba(59, 130, 246, 0.12); border-left: 3px solid rgba(59, 130, 246, 0.5);">
+            <div class="font-bold text-blue-400">ℹ️ Téléchargements multiples détectés</div>
+            <div class="text-blue-300 mt-1">Le fichier a été téléchargé ${torrent.multipleCount}x (${formatBytes(actuallyDownloaded)} total). Cela indique probablement plusieurs seedbox ou serveurs distincts (comportement légitime).</div>
+          </div>
+        `;
+      } else if (torrent.downloadExceedsTorrentSize) {
+        // Téléchargement suspect (pas un multiple)
+        downloadAlert = `
+          <div class="mt-2 p-2 rounded text-[11px] leading-relaxed" style="background-color: rgba(239, 68, 68, 0.12); border-left: 3px solid rgba(239, 68, 68, 0.5);">
+            <div class="font-bold text-red-400">🚨 ANOMALIE : Téléchargement anormal</div>
+            <div class="text-red-300 mt-1">Le téléchargement (${formatBytes(actuallyDownloaded)}) dépasse la taille du torrent (${formatBytes(displaySize)}) de ${torrent.downloadRatioFormatted}x mais n'est pas un multiple entier. Cela peut indiquer une manipulation des données.</div>
+          </div>
+        `;
+      }
 
       return `
       <div class="p-3 ${index > 0 ? 'border-t border-gray-700/30' : ''}" style="background-color: rgba(0, 0, 0, 0.15);">
@@ -293,7 +305,7 @@
             <div class="space-y-1.5 text-[11px]">
               <!-- Ligne 1: Volumes et ratio -->
               <div class="flex flex-wrap gap-x-4 gap-y-1">
-                ${torrent.downloadExceedsTorrentSize ? `<span class="text-red-400 font-bold">⚠️ Download: ${formatBytes(actuallyDownloaded)} (${torrent.downloadRatioFormatted}x la taille)</span>` : actuallyDownloaded > 0 ? `<span class="text-gray-400">Download: ${formatBytes(actuallyDownloaded)}</span>` : `<span class="text-yellow-400">Download: 0 o (déjà possédé)</span>`}
+                ${torrent.isMultipleDownload ? `<span class="text-blue-400">ℹ️ Download: ${formatBytes(actuallyDownloaded)} (${torrent.multipleCount}x téléchargements)</span>` : torrent.downloadExceedsTorrentSize ? `<span class="text-red-400 font-bold">⚠️ Download: ${formatBytes(actuallyDownloaded)} (${torrent.downloadRatioFormatted}x)</span>` : actuallyDownloaded > 0 ? `<span class="text-gray-400">Download: ${formatBytes(actuallyDownloaded)}</span>` : `<span class="text-yellow-400">Download: 0 o (déjà possédé)</span>`}
                 <span class="text-gray-300">Upload: ${formatBytes(displayUploaded)}</span>
                 <span class="font-bold" style="color: ${colors.textColor};">Ratio: ${formatNumber(parseFloat(displayRatio))}</span>
               </div>

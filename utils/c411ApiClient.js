@@ -192,9 +192,19 @@ const C411ApiClient = {
       const ratio = snatch.actualUploaded / snatch.size;
       const uploadedTB = snatch.actualUploaded / ONE_TB;
 
-      // Détecte si le téléchargement dépasse la taille du torrent (très suspect)
-      const downloadExceedsTorrentSize = snatch.actualDownloaded > snatch.size;
+      // Détecte si le téléchargement dépasse la taille du torrent
       const downloadRatio = snatch.size > 0 ? snatch.actualDownloaded / snatch.size : 0;
+
+      // Vérifie si c'est un multiple entier (téléchargements multiples légitimes)
+      // Ex: 2.00x, 3.00x, 4.00x (avec marge de 5% pour les arrondis)
+      const toleranceMargin = 0.05; // 5%
+      const nearestMultiple = Math.round(downloadRatio);
+      const isNearMultiple = nearestMultiple > 1 &&
+                             Math.abs(downloadRatio - nearestMultiple) <= toleranceMargin;
+
+      // Suspect si dépasse ET n'est pas un multiple entier
+      const downloadExceedsTorrentSize = downloadRatio > (1 + toleranceMargin) && !isNearMultiple;
+      const isMultipleDownload = isNearMultiple && nearestMultiple > 1;
 
       // Calcule le temps écoulé entre firstAction et lastAction (période totale)
       const firstAction = new Date(snatch.firstAction);
@@ -230,6 +240,8 @@ const C411ApiClient = {
           downloadExceedsTorrentSize: downloadExceedsTorrentSize,
           downloadRatio: downloadRatio,
           downloadRatioFormatted: downloadRatio.toFixed(2),
+          isMultipleDownload: isMultipleDownload,
+          multipleCount: isMultipleDownload ? nearestMultiple : 0,
           suspicionReasons: [
             isSuspiciousRatio && `Ratio élevé (${ratio.toFixed(2)})`,
             isSuspiciousUpload && `Upload élevé (${uploadedTB.toFixed(2)} TB)`,
@@ -242,7 +254,7 @@ const C411ApiClient = {
         };
 
         suspiciousTorrents.push(suspiciousData);
-        console.log(`[C411ApiClient] Torrent suspect: ${snatch.name.substring(0, 50)}... (ratio: ${ratio.toFixed(2)}, upload: ${uploadedTB.toFixed(2)} TB${downloadExceedsTorrentSize ? ', DL > taille!' : ''})`);
+        console.log(`[C411ApiClient] Torrent suspect: ${snatch.name.substring(0, 50)}... (ratio: ${ratio.toFixed(2)}, upload: ${uploadedTB.toFixed(2)} TB${downloadExceedsTorrentSize ? ', DL > taille!' : ''}${isMultipleDownload ? `, ${nearestMultiple}x DL (légitime)` : ''})`);
       }
     }
 
