@@ -215,9 +215,25 @@ const C411ApiClient = {
       // Utilise seedingTime (temps réel de seed) pour calculer le débit réel nécessaire
       const seedingTimeSeconds = snatch.seedingTime || 0;
 
-      // Calcule le débit moyen basé sur le temps de seed réel
-      // Protection contre division par zéro : si seedingTime < 60 secondes, on considère 60 secondes minimum
-      const effectiveSeedingTime = Math.max(seedingTimeSeconds, 60);
+      // Détermine le temps effectif à utiliser pour le calcul du débit
+      let effectiveSeedingTime;
+      let usedElapsedTime = false;
+
+      if (seedingTimeSeconds === 0 && snatch.actualUploaded > 0) {
+        // Upload pendant le téléchargement (pas encore de seedTime car pas complété)
+        // On utilise le temps total écoulé comme estimation
+        effectiveSeedingTime = Math.max(elapsedSeconds, 60);
+        usedElapsedTime = true;
+      } else if (seedingTimeSeconds < 60) {
+        // Protection contre division par zéro pour les très courts seedTime
+        effectiveSeedingTime = 60;
+        usedElapsedTime = false;
+      } else {
+        // Cas normal : on utilise le seedTime réel
+        effectiveSeedingTime = seedingTimeSeconds;
+        usedElapsedTime = false;
+      }
+
       const uploadSpeedBps = effectiveSeedingTime > 0 ? snatch.actualUploaded / effectiveSeedingTime : 0;
       const uploadSpeedMbps = (uploadSpeedBps * 8) / (1024 * 1024);
 
@@ -237,6 +253,7 @@ const C411ApiClient = {
           elapsedSeconds: elapsedSeconds,
           seedingTimeSeconds: seedingTimeSeconds,
           uploadSpeedMbps: uploadSpeedMbps.toFixed(0),
+          usedElapsedTime: usedElapsedTime, // Indique si on a utilisé elapsedTime au lieu de seedingTime
           downloadExceedsTorrentSize: downloadExceedsTorrentSize,
           downloadRatio: downloadRatio,
           downloadRatioFormatted: downloadRatio.toFixed(2),

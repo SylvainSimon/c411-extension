@@ -298,7 +298,6 @@
                   <span class="text-[10px] text-gray-500">• Taille: ${formatBytes(displaySize)}</span>
                 </div>
               </div>
-              <span class="flex-shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold" style="background-color: rgba(34, 197, 94, 0.2); color: rgb(74, 222, 128);">✓ Données précises</span>
             </div>
 
             <!-- Métriques clés -->
@@ -320,8 +319,8 @@
               <!-- Ligne 3: Durées et débit -->
               <div class="flex flex-wrap gap-x-4 gap-y-1">
                 ${downloadTimeSeconds > 0 ? `<span class="text-gray-400">📥 Temps de téléchargement: ${formatDurationFromSeconds(downloadTimeSeconds)}</span>` : ''}
-                <span class="text-gray-400">🌱 Temps de seed: ${formatDurationFromSeconds(torrent.seedingTimeSeconds)}</span>
-                <span class="${parseFloat(torrent.uploadSpeedMbps) > 1000 ? 'font-bold' : 'text-gray-400'}" style="${parseFloat(torrent.uploadSpeedMbps) > 1000 ? 'color: ' + colors.textColor : ''}">⚡ Débit moyen: ${formatSpeed(parseFloat(torrent.uploadSpeedMbps))}</span>
+                <span class="text-gray-400">🌱 Temps de seed: ${torrent.seedingTimeSeconds > 0 ? formatDurationFromSeconds(torrent.seedingTimeSeconds) : '0 sec (upload pendant DL)'}</span>
+                <span class="${parseFloat(torrent.uploadSpeedMbps) > 1000 ? 'font-bold' : 'text-gray-400'}" style="${parseFloat(torrent.uploadSpeedMbps) > 1000 ? 'color: ' + colors.textColor : ''}">⚡ Débit moyen${torrent.usedElapsedTime ? ' (estimé)' : ''}: ${formatSpeed(parseFloat(torrent.uploadSpeedMbps))}</span>
               </div>
             </div>
 
