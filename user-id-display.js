@@ -155,8 +155,8 @@
 
       // Lance l'analyse avec les seuils
       const analysis = await C411ApiClient.analyzeSuspiciousDownloads(userId, {
-        minRatio: 50,
-        minUploadedTB: 2
+        minRatio: 25,
+        minUploadedTB: null // Désactivé : le ratio seul suffit
       });
 
       if (!analysis || !analysis.mostSuspicious) {
@@ -299,6 +299,16 @@
                 </div>
               </div>
             </div>
+
+            <!-- Raisons de la suspicion -->
+            ${torrent.suspicionReasons && torrent.suspicionReasons.length > 0 ? `
+              <div class="p-2 rounded text-[11px] leading-relaxed" style="background-color: rgba(239, 68, 68, 0.08); border-left: 3px solid rgba(239, 68, 68, 0.4);">
+                <div class="font-bold mb-1" style="color: ${colors.textColor};">⚠️ Raisons de la suspicion :</div>
+                <ul class="space-y-0.5 text-gray-300">
+                  ${torrent.suspicionReasons.map(reason => `<li>• ${reason}</li>`).join('')}
+                </ul>
+              </div>
+            ` : ''}
 
             <!-- Métriques clés -->
             <div class="space-y-1.5 text-[11px]">

@@ -158,12 +158,12 @@ const C411ApiClient = {
    */
   async analyzeSuspiciousDownloads(userId, thresholds = {}) {
     const {
-      minRatio = 50,           // Ratio minimum pour être suspect
-      minUploadedTB = 2,       // Upload minimum en TB pour être suspect
+      minRatio = 25,           // Ratio minimum pour être suspect (25+ est très suspect)
+      minUploadedTB = null,    // Désactivé par défaut, le ratio suffit
     } = thresholds;
 
     console.log('[C411ApiClient] Analyse des snatches suspects...');
-    console.log('[C411ApiClient] Seuils:', { minRatio, minUploadedTB });
+    console.log('[C411ApiClient] Seuils:', { minRatio, minUploadedTB: minUploadedTB || 'désactivé' });
 
     const snatches = await this.getAllUserSnatchHistory(userId, {
       sortBy: 'lastAction',
@@ -239,14 +239,15 @@ const C411ApiClient = {
 
       const uploadSpeedBps = effectiveSeedingTime > 0 ? snatch.actualUploaded / effectiveSeedingTime : 0;
       const uploadSpeedMbps = (uploadSpeedBps * 8) / (1024 * 1024);
+      // Garde plus de précision pour les petits débits
+      const uploadSpeedFormatted = uploadSpeedMbps >= 1 ? uploadSpeedMbps.toFixed(0) : uploadSpeedMbps.toFixed(2);
 
-      // Critères de suspicion
+      // Critères de suspicion (l'anomalie de download n'est PAS un critère, juste une info)
       const isSuspiciousRatio = ratio >= minRatio;
-      const isSuspiciousUpload = uploadedTB >= minUploadedTB;
+      const isSuspiciousUpload = minUploadedTB !== null && uploadedTB >= minUploadedTB;
       const isSuspiciousSpeed = uploadSpeedMbps > 1000; // Plus de 1 Gbps en moyenne est suspect
-      const isSuspiciousDownload = downloadExceedsTorrentSize; // Téléchargement > taille du torrent
 
-      if (isSuspiciousRatio || isSuspiciousUpload || isSuspiciousSpeed || isSuspiciousDownload) {
+      if (isSuspiciousRatio || isSuspiciousUpload || isSuspiciousSpeed) {
         // Prépare l'objet avec toutes les données (déjà précises depuis snatch-history)
         const suspiciousData = {
           ...snatch,
@@ -255,7 +256,7 @@ const C411ApiClient = {
           uploadedTB: uploadedTB.toFixed(2),
           elapsedSeconds: elapsedSeconds,
           seedingTimeSeconds: seedingTimeSeconds,
-          uploadSpeedMbps: uploadSpeedMbps.toFixed(0),
+          uploadSpeedMbps: uploadSpeedFormatted,
           usedElapsedTime: usedElapsedTime, // Indique si on a utilisé elapsedTime au lieu de seedingTime
           downloadExceedsTorrentSize: downloadExceedsTorrentSize,
           downloadRatio: downloadRatio,
@@ -265,8 +266,7 @@ const C411ApiClient = {
           suspicionReasons: [
             isSuspiciousRatio && `Ratio élevé (${ratio.toFixed(2)})`,
             isSuspiciousUpload && `Upload élevé (${uploadedTB.toFixed(2)} TB)`,
-            isSuspiciousSpeed && `Débit suspect (${uploadSpeedMbps.toFixed(0)} Mbps)`,
-            isSuspiciousDownload && `Téléchargement > taille torrent (${downloadRatio.toFixed(2)}x)`
+            isSuspiciousSpeed && `Débit suspect (${(uploadSpeedMbps / 8).toFixed(2)} Mo/s)`
           ].filter(Boolean),
           hasSnatcherData: true, // Toujours vrai car on vient de snatch-history
           actualRatio: ratio,
