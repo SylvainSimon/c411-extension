@@ -188,8 +188,12 @@ const C411ApiClient = {
       // Évite la division par zéro
       if (snatch.size === 0) continue;
 
-      // Calcule le ratio basé sur la taille du torrent (pas actualDownloaded)
-      const ratio = snatch.actualUploaded / snatch.size;
+      // Calcule le ratio de manière intelligente :
+      // - Si completed = true : utilise actualUploaded / size (cas où l'utilisateur avait déjà le fichier)
+      // - Si completed = false : utilise le ratio de l'API (téléchargement partiel suspect)
+      const ratio = snatch.completed
+        ? snatch.actualUploaded / snatch.size
+        : snatch.ratio;
       const uploadedTB = snatch.actualUploaded / ONE_TB;
 
       // Détecte si le téléchargement dépasse la taille du torrent
@@ -218,29 +222,11 @@ const C411ApiClient = {
       // Utilise seedingTime (temps réel de seed) pour calculer le débit réel nécessaire
       const seedingTimeSeconds = snatch.seedingTime || 0;
 
-      // Détermine le temps effectif à utiliser pour le calcul du débit
-      let effectiveSeedingTime;
-      let usedElapsedTime = false;
-
-      if (seedingTimeSeconds === 0 && snatch.actualUploaded > 0) {
-        // Upload pendant le téléchargement (pas encore de seedTime car pas complété)
-        // On utilise le temps total écoulé comme estimation
-        effectiveSeedingTime = Math.max(elapsedSeconds, 60);
-        usedElapsedTime = true;
-      } else if (seedingTimeSeconds < 60) {
-        // Protection contre division par zéro pour les très courts seedTime
-        effectiveSeedingTime = 60;
-        usedElapsedTime = false;
-      } else {
-        // Cas normal : on utilise le seedTime réel
-        effectiveSeedingTime = seedingTimeSeconds;
-        usedElapsedTime = false;
-      }
-
+      // Calcul du débit moyen sur toute la période (incluant download + seed)
+      // Car l'upload peut commencer dès le téléchargement
+      const effectiveSeedingTime = Math.max(elapsedSeconds, 60);
       const uploadSpeedBps = effectiveSeedingTime > 0 ? snatch.actualUploaded / effectiveSeedingTime : 0;
       const uploadSpeedMbps = (uploadSpeedBps * 8) / (1024 * 1024);
-      // Garde plus de précision pour les petits débits
-      const uploadSpeedFormatted = uploadSpeedMbps >= 1 ? uploadSpeedMbps.toFixed(0) : uploadSpeedMbps.toFixed(2);
 
       // Critères de suspicion (l'anomalie de download n'est PAS un critère, juste une info)
       const isSuspiciousRatio = ratio >= minRatio;
@@ -256,8 +242,7 @@ const C411ApiClient = {
           uploadedTB: uploadedTB.toFixed(2),
           elapsedSeconds: elapsedSeconds,
           seedingTimeSeconds: seedingTimeSeconds,
-          uploadSpeedMbps: uploadSpeedFormatted,
-          usedElapsedTime: usedElapsedTime, // Indique si on a utilisé elapsedTime au lieu de seedingTime
+          uploadSpeedMbps: uploadSpeedMbps,
           downloadExceedsTorrentSize: downloadExceedsTorrentSize,
           downloadRatio: downloadRatio,
           downloadRatioFormatted: downloadRatio.toFixed(2),
