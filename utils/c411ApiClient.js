@@ -180,7 +180,46 @@ const C411ApiClient = {
     let totalUploaded = 0;
     let totalDownloaded = 0;
 
-    // Analyse chaque snatch
+    // Première passe : calcule tous les débits pour analyse statistique
+    const speedsData = [];
+    for (const snatch of snatches) {
+      if (snatch.size === 0 || snatch.actualUploaded === 0) continue;
+
+      const firstAction = new Date(snatch.firstAction);
+      const lastAction = new Date(snatch.lastAction);
+      const elapsedSeconds = Math.max((lastAction - firstAction) / 1000, 60);
+      const uploadSpeedBps = snatch.actualUploaded / elapsedSeconds;
+      const uploadSpeedMbps = (uploadSpeedBps * 8) / (1024 * 1024);
+
+      speedsData.push({
+        torrentId: snatch.torrentId,
+        speedMbps: uploadSpeedMbps
+      });
+    }
+
+    // Calcule la médiane et l'écart-type des débits
+    let medianSpeed = 0;
+    let avgSpeed = 0;
+    let stdDevSpeed = 0;
+
+    if (speedsData.length > 0) {
+      const sortedSpeeds = speedsData.map(d => d.speedMbps).sort((a, b) => a - b);
+      medianSpeed = sortedSpeeds[Math.floor(sortedSpeeds.length / 2)];
+      avgSpeed = sortedSpeeds.reduce((sum, s) => sum + s, 0) / sortedSpeeds.length;
+
+      // Écart-type
+      const variance = sortedSpeeds.reduce((sum, s) => sum + Math.pow(s - avgSpeed, 2), 0) / sortedSpeeds.length;
+      stdDevSpeed = Math.sqrt(variance);
+    }
+
+    console.log('[C411ApiClient] Statistiques de débit:', {
+      medianSpeed: medianSpeed.toFixed(2) + ' Mbps',
+      avgSpeed: avgSpeed.toFixed(2) + ' Mbps',
+      stdDevSpeed: stdDevSpeed.toFixed(2) + ' Mbps',
+      totalSnatches: speedsData.length
+    });
+
+    // Deuxième passe : analyse chaque snatch avec détection d'anomalie de débit
     for (const snatch of snatches) {
       totalUploaded += snatch.actualUploaded;
       totalDownloaded += snatch.size;
@@ -188,12 +227,17 @@ const C411ApiClient = {
       // Évite la division par zéro
       if (snatch.size === 0) continue;
 
-      // Calcule le ratio de manière intelligente :
-      // - Si completed = true : utilise actualUploaded / size (cas où l'utilisateur avait déjà le fichier)
-      // - Si completed = false : utilise le ratio de l'API (téléchargement partiel suspect)
-      const ratio = snatch.completed
-        ? snatch.actualUploaded / snatch.size
-        : snatch.ratio;
+      // Calcule les deux types de ratio pour affichage
+      const ratioBasedOnSize = snatch.actualUploaded / snatch.size; // Ratio basé sur taille du fichier
+      const ratioBasedOnDownload = snatch.ratio; // Ratio API basé sur actualDownloaded
+
+      // Pour la détection de suspicion, utilise le ratio le plus pertinent :
+      // - Si completed = true : utilise ratioBasedOnSize (cas où l'utilisateur avait déjà le fichier)
+      // - Si completed = false ET ratio API valide (>= 0) : utilise ratioBasedOnDownload (téléchargement partiel suspect)
+      // - Sinon (ratio API = -1 ou invalide) : utilise ratioBasedOnSize
+      const ratio = snatch.completed || snatch.ratio < 0
+        ? ratioBasedOnSize
+        : ratioBasedOnDownload;
       const uploadedTB = snatch.actualUploaded / ONE_TB;
 
       // Détecte si le téléchargement dépasse la taille du torrent
@@ -228,21 +272,34 @@ const C411ApiClient = {
       const uploadSpeedBps = effectiveSeedingTime > 0 ? snatch.actualUploaded / effectiveSeedingTime : 0;
       const uploadSpeedMbps = (uploadSpeedBps * 8) / (1024 * 1024);
 
+      // Détecte si ce débit est anormalement élevé par rapport aux autres torrents de l'utilisateur
+      // Utilise un seuil de 3 écarts-types au-dessus de la médiane (anomalie statistique)
+      const isAbnormalSpeed = speedsData.length >= 3 &&
+                              uploadSpeedMbps > (medianSpeed + 3 * stdDevSpeed) &&
+                              uploadSpeedMbps > medianSpeed * 2; // Au moins 2x la médiane
+
       // Critères de suspicion (l'anomalie de download n'est PAS un critère, juste une info)
       const isSuspiciousRatio = ratio >= minRatio;
       const isSuspiciousUpload = minUploadedTB !== null && uploadedTB >= minUploadedTB;
       const isSuspiciousSpeed = uploadSpeedMbps > 1000; // Plus de 1 Gbps en moyenne est suspect
 
-      if (isSuspiciousRatio || isSuspiciousUpload || isSuspiciousSpeed) {
+      if (isSuspiciousRatio || isSuspiciousUpload || isSuspiciousSpeed || isAbnormalSpeed) {
         // Prépare l'objet avec toutes les données (déjà précises depuis snatch-history)
         const suspiciousData = {
           ...snatch,
           ratio: ratio,
           ratioFormatted: ratio.toFixed(2),
+          ratioBasedOnSize: ratioBasedOnSize,
+          ratioBasedOnSizeFormatted: ratioBasedOnSize.toFixed(2),
+          ratioBasedOnDownload: ratioBasedOnDownload,
+          ratioBasedOnDownloadFormatted: ratioBasedOnDownload >= 0 ? ratioBasedOnDownload.toFixed(2) : '-1',
           uploadedTB: uploadedTB.toFixed(2),
           elapsedSeconds: elapsedSeconds,
           seedingTimeSeconds: seedingTimeSeconds,
           uploadSpeedMbps: uploadSpeedMbps,
+          isAbnormalSpeed: isAbnormalSpeed,
+          userMedianSpeed: medianSpeed,
+          userAvgSpeed: avgSpeed,
           downloadExceedsTorrentSize: downloadExceedsTorrentSize,
           downloadRatio: downloadRatio,
           downloadRatioFormatted: downloadRatio.toFixed(2),
@@ -251,7 +308,8 @@ const C411ApiClient = {
           suspicionReasons: [
             isSuspiciousRatio && `Ratio élevé (${ratio.toFixed(2)})`,
             isSuspiciousUpload && `Upload élevé (${uploadedTB.toFixed(2)} TB)`,
-            isSuspiciousSpeed && `Débit suspect (${(uploadSpeedMbps / 8).toFixed(2)} Mo/s)`
+            isSuspiciousSpeed && `Débit suspect (${(uploadSpeedMbps / 8).toFixed(2)} Mo/s)`,
+            isAbnormalSpeed && `Débit anormal (${(uploadSpeedMbps / 8).toFixed(2)} Mo/s vs médiane ${(medianSpeed / 8).toFixed(2)} Mo/s)`
           ].filter(Boolean),
           hasSnatcherData: true, // Toujours vrai car on vient de snatch-history
           actualRatio: ratio,

@@ -312,11 +312,15 @@
 
             <!-- Métriques clés -->
             <div class="space-y-1.5 text-[11px]">
-              <!-- Ligne 1: Volumes et ratio -->
+              <!-- Ligne 1: Volumes et ratios -->
               <div class="flex flex-wrap gap-x-4 gap-y-1">
                 ${torrent.isMultipleDownload ? `<span class="text-blue-400">ℹ️ Download: ${formatBytes(actuallyDownloaded)} (${torrent.multipleCount}x téléchargements)</span>` : torrent.downloadExceedsTorrentSize ? `<span class="text-red-400 font-bold">⚠️ Download: ${formatBytes(actuallyDownloaded)} (${torrent.downloadRatioFormatted}x)</span>` : actuallyDownloaded > 0 ? `<span class="text-gray-400">Download: ${formatBytes(actuallyDownloaded)}</span>` : `<span class="text-yellow-400">Download: 0 o (déjà possédé)</span>`}
                 <span class="text-gray-300">Upload: ${formatBytes(displayUploaded)}</span>
-                <span class="font-bold" style="color: ${colors.textColor};">Ratio: ${formatNumber(parseFloat(displayRatio))}</span>
+              </div>
+              <div class="flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
+                <span class="font-bold" style="color: ${colors.textColor};">Ratio utilisé: ${formatNumber(parseFloat(displayRatio))}</span>
+                <span class="text-gray-400">Ratio base fichier: ${formatNumber(parseFloat(torrent.ratioBasedOnSizeFormatted))}</span>
+                ${torrent.ratioBasedOnDownload >= 0 ? `<span class="text-gray-400">Ratio base DL: ${formatNumber(parseFloat(torrent.ratioBasedOnDownloadFormatted))}</span>` : ''}
               </div>
 
               <!-- Ligne 2: Dates -->
@@ -330,7 +334,10 @@
               <div class="flex flex-wrap gap-x-4 gap-y-1">
                 ${downloadTimeSeconds > 0 ? `<span class="text-gray-400">📥 Temps de téléchargement: ${formatDurationFromSeconds(downloadTimeSeconds)}</span>` : ''}
                 <span class="text-gray-400">🌱 Temps de seed: ${torrent.seedingTimeSeconds > 0 ? formatDurationFromSeconds(torrent.seedingTimeSeconds) : '0 sec (upload pendant DL)'}</span>
-                <span class="${parseFloat(torrent.uploadSpeedMbps) > 1000 ? 'font-bold' : 'text-gray-400'}" style="${parseFloat(torrent.uploadSpeedMbps) > 1000 ? 'color: ' + colors.textColor : ''}">⚡ Débit moyen${torrent.usedElapsedTime ? ' (estimé)' : ''}: ${formatSpeed(parseFloat(torrent.uploadSpeedMbps))}</span>
+                <span class="${torrent.isAbnormalSpeed ? 'font-bold text-orange-400' : parseFloat(torrent.uploadSpeedMbps) > 1000 ? 'font-bold' : 'text-gray-400'}" style="${torrent.isAbnormalSpeed ? 'color: #fb923c' : parseFloat(torrent.uploadSpeedMbps) > 1000 ? 'color: ' + colors.textColor : ''}">
+                  ${torrent.isAbnormalSpeed ? '⚠️' : '⚡'} Débit moyen${torrent.usedElapsedTime ? ' (estimé)' : ''}: ${formatSpeed(parseFloat(torrent.uploadSpeedMbps))}
+                  ${torrent.isAbnormalSpeed ? ` <span class="text-[10px] text-orange-300">(médiane utilisateur: ${formatSpeed(torrent.userMedianSpeed)})</span>` : ''}
+                </span>
               </div>
             </div>
 
