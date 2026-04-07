@@ -1,0 +1,33 @@
+<div id="c411-movie-selector" class="mt-3 p-3 bg-gray-800 border border-gray-700 rounded-md shadow-lg max-w-xl">
+  <div class="text-sm font-semibold text-gray-300 mb-2 flex justify-between items-center">
+    <span>Plusieurs films trouvés sur TMDB :</span>
+    <button id="c411-cancel-selection" class="text-gray-500 hover:text-white text-xs">Fermer</button>
+  </div>
+  <div class="space-y-2 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
+    {% for movie in results %}
+      <div class="c411-movie-choice flex gap-3 p-2 hover:bg-gray-700 rounded cursor-pointer transition-colors border border-transparent hover:border-emerald-500/30" data-id="{{ movie.id }}">
+        <div class="flex-shrink-0 w-10 h-15 bg-gray-900 rounded overflow-hidden">
+          {% if movie.poster_path %}
+            <img src="https://image.tmdb.org/t/p/w92{{ movie.poster_path }}" class="w-full h-full object-cover">
+          {% else %}
+            <div class="w-full h-full flex items-center justify-center text-[10px] text-gray-600">N/A</div>
+          {% endif %}
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-medium text-emerald-400 truncate">{{ movie.title }}</div>
+          <div class="text-xs text-gray-500 italic">{{ movie.original_title }}</div>
+          <div class="text-[10px] text-gray-400 mt-1">
+            📅 {{ movie.release_date|default('Date inconnue') }} 
+            • ⭐ {{ movie.vote_average|round(1) }}/10
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<style>
+  .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+  .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+  .custom-scrollbar::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 10px; }
+</style>

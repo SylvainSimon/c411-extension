@@ -1,0 +1,115 @@
+<div id="c411-suspicious-result" class="mt-4 rounded-lg border transition-all" style="background-color: {{ colors.bg }}; border-color: {{ colors.border }}">
+  <div class="p-3 border-b border-gray-700/30">
+    <div class="flex items-center gap-2 mb-2">
+      <span style="font-size: 18px;">{{ colors.emoji }}</span>
+      <div class="font-semibold text-sm flex-1" style="color: {{ colors.text }};">{{ analysis.suspicionMessage }}</div>
+    </div>
+    <div class="flex gap-2 text-xs text-gray-400">
+      <span>{{ totalDownloadsFormatted }} téléchargements au total</span>
+      <span>•</span>
+      <span>{{ suspectCountFormatted }} torrent{{ analysis.suspiciousTorrents|length > 1 ? 's' : '' }} suspect{{ analysis.suspiciousTorrents|length > 1 ? 's' : '' }}</span>
+    </div>
+  </div>
+  
+  <div>
+    {% for torrent in topSuspects %}
+      <div class="p-3 {% if not loop.first %}border-t border-gray-700/30{% endif %}" style="background-color: rgba(0, 0, 0, 0.15);">
+        <div class="flex gap-2">
+          <div class="flex-shrink-0 w-6 text-center font-bold text-gray-500">{{ loop.index }}</div>
+          <div class="flex-1 text-xs space-y-2">
+            <!-- En-tête -->
+            <div>
+              <div class="text-gray-300 font-medium leading-tight mb-1">{{ torrent.name }}</div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <a href="/torrents/{{ torrent.infoHash }}" target="_blank" class="inline-flex items-center gap-1 transition-colors text-[11px]" style="color: rgb(96, 165, 250);">
+                  <span>🔗</span> {{ torrent.infoHash }}
+                </a>
+                <span class="text-[10px] text-gray-500">• Taille: {{ torrent.formattedSize }}</span>
+              </div>
+            </div>
+            
+            <!-- Raisons -->
+            <div class="p-2 rounded text-[11px] leading-relaxed" style="background-color: rgba(239, 68, 68, 0.08); border-left: 3px solid rgba(239, 68, 68, 0.4);">
+              <div class="font-bold mb-1" style="color: {{ colors.text }};">⚠️ Raisons de la suspicion :</div>
+              <ul class="space-y-0.5 text-gray-300">
+                {% for reason in torrent.suspicionReasons %}
+                  <li>• {{ reason }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+
+            <!-- Métriques -->
+            <div class="space-y-2 text-[11px]">
+              <div class="p-2 rounded" style="background-color: rgba(0, 0, 0, 0.2);">
+                <div class="font-semibold text-gray-400 mb-1">📊 Volumes</div>
+                <div class="flex flex-wrap gap-x-6 gap-y-1">
+                  <span class="text-gray-400">Taille: {{ torrent.formattedSize }}</span>
+                  {% if torrent.formattedCompletions %}
+                    <span class="text-gray-400">Complétions: {{ torrent.formattedCompletions }}</span>
+                  {% endif %}
+                  <span class="{{ torrent.downloadExceedsTorrentSize ? 'text-red-400' : 'text-gray-300' }}">Volume téléchargé: {{ torrent.formattedDownloaded }}</span>
+                  <span class="text-gray-300 font-semibold">Volume envoyé: {{ torrent.formattedUploaded }}</span>
+                </div>
+              </div>
+
+              <div class="p-2 rounded" style="background-color: rgba(0, 0, 0, 0.2);">
+                <div class="font-semibold text-gray-400 mb-1">⚖️ Ratios</div>
+                <div class="flex flex-wrap gap-x-6 gap-y-1">
+                  <span class="font-bold" style="color: {{ colors.text }};">Ratio: {{ torrent.actualRatioFormatted }}</span>
+                  <span class="text-gray-400">Ratio (base taille): {{ torrent.ratioBySizeFormatted }}</span>
+                </div>
+              </div>
+
+              <div class="p-2 rounded" style="background-color: rgba(0, 0, 0, 0.2);">
+                <div class="font-semibold text-gray-400 mb-1">📅 Chronologie (le {{ torrent.mainDate }})</div>
+                <div class="flex flex-wrap gap-x-6 gap-y-1 text-gray-400">
+                  {% if torrent.formattedCreatedAt %}
+                    <span>📤 Publié: {{ torrent.formattedCreatedAt }}</span>
+                  {% endif %}
+                  <span class="{{ torrent.isLateActivity ? 'text-orange-400 font-bold' : '' }}">
+                    📅 Début: {{ torrent.formattedFirstAction }}
+                    {% if torrent.isLateActivity and torrent.formattedDelay %}
+                      <span class="text-[9px] opacity-80">({{ torrent.formattedDelay }})</span>
+                    {% endif %}
+                  </span>
+                  {% if torrent.formattedCompletedAt %}
+                    <span>✅ Complété: {{ torrent.formattedCompletedAt }}</span>
+                  {% endif %}
+                  <span>📡 Dernier: {{ torrent.formattedLastAction }}</span>
+                </div>
+              </div>
+
+              <div class="p-2 rounded" style="background-color: rgba(0, 0, 0, 0.2);">
+                <div class="font-semibold text-gray-400 mb-1">⚡ Performance</div>
+                <div class="flex flex-wrap gap-x-6 gap-y-1">
+                  {% if torrent.downloadTimeSeconds > 0 %}
+                    <span class="text-gray-400">📥 Temps de téléchargement: {{ torrent.formattedDownloadTime }}</span>
+                  {% endif %}
+                  <span class="text-gray-400">🌱 Temps de seeding: {{ torrent.formattedSeedingTime }}</span>
+                  <span class="{{ torrent.uploadSpeedMbps > 1000 ? 'font-bold' : 'text-gray-400' }}" style="{{ torrent.uploadSpeedMbps > 1000 ? 'color: ' ~ colors.text : '' }}">
+                    ⚡ Débit d'envoi: {{ torrent.formattedUploadSpeed }}
+                    {% if torrent.formattedActiveTime %}
+                      <span class="text-[9px] opacity-80">(sur {{ torrent.formattedActiveTime }})</span>
+                    {% endif %}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+
+    {% if analysis.suspiciousTorrents|length > 5 %}
+      <div class="p-2 text-center text-xs text-gray-500">+{{ analysis.suspiciousTorrents|length - 5 }} autres torrents suspects</div>
+    {% endif %}
+  </div>
+
+  <div class="p-3 border-t border-gray-700/30 bg-black/10">
+    <div class="text-xs text-gray-400 mb-2">Motif de ban suggéré :</div>
+    <div class="flex gap-2">
+      <input type="text" id="c411-ban-reason" readonly class="flex-1 px-2 py-1 text-xs rounded border bg-gray-800 text-gray-300 border-gray-600" value="{{ banReason }}">
+      <button id="c411-ban-button" class="px-3 py-1 text-xs rounded border transition-colors font-semibold" style="background-color: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.3); color: rgb(239, 68, 68);">🛡️ Bannir l'utilisateur</button>
+    </div>
+  </div>
+</div>

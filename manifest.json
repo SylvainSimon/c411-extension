@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "C411 Tools",
+  "version": "0.4.0",
+  "description": "Outils pour C411 : détection de tricheurs et génération de BBCode.",
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://*.c411.org/*"
+  ],
+  "background": {
+    "service_worker": "src/background.ts",
+    "type": "module"
+  },
+  "options_page": "src/options/options.html",
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.c411.org/*"
+      ],
+      "js": [
+        "src/core/parsers/api-interceptor.ts"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://*.c411.org/*"
+      ],
+      "js": [
+        "src/main.ts"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
