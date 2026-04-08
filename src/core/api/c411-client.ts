@@ -1,4 +1,4 @@
-import { SnatchData, UserSnatchResponse, TorrentMetadata, TorrentStats, Snatcher } from '../../types/api';
+import { SnatchData, UserSnatchResponse, TorrentMetadata, TorrentStats, Snatcher, UserProfileData } from '../../types/api';
 
 export const C411ApiClient = {
   getCsrfToken(): string | null {
@@ -7,7 +7,7 @@ export const C411ApiClient = {
   },
 
   async call<T>(endpoint: string, options: RequestInit = {}): Promise<T | null> {
-    const csrfToken = this.getCsrfToken();
+    const csrfToken = C411ApiClient.getCsrfToken();
     const baseUrl = window.location.origin;
     const url = endpoint.startsWith('http') ? endpoint : `${baseUrl}${endpoint}`;
 
@@ -32,21 +32,25 @@ export const C411ApiClient = {
     }
   },
 
+  async getUserProfile(username: string): Promise<UserProfileData | null> {
+    return await C411ApiClient.call<UserProfileData>(`/api/users/${username}`);
+  },
+
   async getUserSnatchHistory(userId: number, page = 1): Promise<UserSnatchResponse | null> {
     const endpoint = `/api/users/${userId}/snatch-history?page=${page}&perPage=50&sortBy=lastAction&sortOrder=desc`;
-    return await this.call<UserSnatchResponse>(endpoint);
+    return await C411ApiClient.call<UserSnatchResponse>(endpoint);
   },
 
   async getTorrentMetadata(infoHash: string): Promise<TorrentMetadata | null> {
-    return await this.call<TorrentMetadata>(`/api/torrents/${infoHash}`);
+    return await C411ApiClient.call<TorrentMetadata>(`/api/torrents/${infoHash}`);
   },
 
   async getTorrentStats(infoHash: string): Promise<TorrentStats | null> {
-    return await this.call<TorrentStats>(`/api/torrents/${infoHash}/stats`);
+    return await C411ApiClient.call<TorrentStats>(`/api/torrents/${infoHash}/stats`);
   },
 
   async getTorrentTopSnatchers(infoHash: string): Promise<Snatcher[]> {
-    const response = await this.call<{ data: Snatcher[] }>(`/api/torrents/${infoHash}/snatchers?page=1&perPage=10&sortBy=uploaded&sortOrder=desc`);
+    const response = await C411ApiClient.call<{ data: Snatcher[] }>(`/api/torrents/${infoHash}/snatchers?page=1&perPage=10&sortBy=uploaded&sortOrder=desc`);
     return response?.data || [];
   },
 
@@ -56,7 +60,7 @@ export const C411ApiClient = {
     let totalPages = 1;
 
     while (page <= totalPages) {
-      const response = await this.getUserSnatchHistory(userId, page);
+      const response = await C411ApiClient.getUserSnatchHistory(userId, page);
       if (!response || !response.data) break;
 
       allSnatches = allSnatches.concat(response.data);
@@ -77,7 +81,7 @@ export const C411ApiClient = {
       isPermanent: true
     };
 
-    return await this.call<{ success: boolean }>(`/api/team-pending/users/${userId}/ban`, {
+    return await C411ApiClient.call<{ success: boolean }>(`/api/team-pending/users/${userId}/ban`, {
       method: 'POST',
       body: JSON.stringify(payload)
     });

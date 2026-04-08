@@ -1,9 +1,9 @@
-import { ApiInterceptor } from '../../core/parsers/api-interceptor';
 import { CheatAnalyzer } from './cheat-analyzer';
 import { C411ApiClient } from '../../core/api/c411-client';
 import { AnalysisResult } from '../../types/cheat-detection';
 import { TemplateEngine } from '../../core/utils/template-engine';
 import { FormatUtils } from '../../core/utils/format-utils';
+import { UrlParser } from '../../core/utils/url-parser';
 
 // Importation du template global (Vite ?raw)
 import resultCardTemplate from '../../templates/cheater-detection/result-card.twig?raw';
@@ -37,25 +37,36 @@ function generateDetailedBanReason(analysis: AnalysisResult): string {
   const many = suspectCount > 1;
   const prefix = many ? 'jusqu\'à ' : '';
 
-  // 1. Synthèse des Ratios
+  // 1. Upload Synchronisé (Priorité haute, au niveau du compte)
+  const isSynchro = reasonsArray.some(r => r.includes('synchronisé')) || analysis.globalWarnings.some(w => w.includes('synchronisé'));
+  
+  if (isSynchro) {
+    const synchroWarning = analysis.globalWarnings.find(w => w.includes('synchronisé'));
+    if (synchroWarning) {
+      const details = synchroWarning.split('détecté :')[1] || synchroWarning;
+      synthesized.push(`upload synchronisé (${details.trim()})`);
+    }
+  }
+
+  // 2. Synthèse des Ratios
   if (reasonsArray.some(r => r.includes('Ratio élevé'))) {
     const maxRatio = Math.max(...analysis.suspiciousTorrents.map(t => t.actualRatio));
     synthesized.push(`ratio ${prefix}${FormatUtils.formatNumber(maxRatio)}`);
   }
 
-  // 2. Synthèse de l'Upload
+  // 3. Synthèse de l'Upload
   if (reasonsArray.some(r => r.includes('Upload élevé'))) {
     const maxUpload = Math.max(...analysis.suspiciousTorrents.map(t => t.uploadedTB));
     synthesized.push(`upload ${prefix}${FormatUtils.formatNumber(maxUpload)} TB`);
   }
 
-  // 3. Synthèse des Débits
+  // 4. Synthèse des Débits
   if (reasonsArray.some(r => r.includes('Débit suspect'))) {
     const maxSpeed = Math.max(...analysis.suspiciousTorrents.map(t => t.uploadSpeedMbps));
     synthesized.push(`débit ${prefix}${formatSpeedBytesOnly(maxSpeed)}`);
   }
 
-  // 4. Activité tardive
+  // 5. Activité tardive
   if (reasonsArray.some(r => r.includes('Activité tardive'))) {
     const lateTorrents = analysis.suspiciousTorrents.filter(t => t.isLateActivity);
     const maxDays = Math.max(...lateTorrents.map(t => t.delayFromCreationDays || 0));
@@ -64,7 +75,7 @@ function generateDetailedBanReason(analysis: AnalysisResult): string {
     }
   }
 
-  // 5. Domination
+  // 6. Domination
   if (reasonsArray.some(r => r.includes('Domination'))) {
     const dominantTorrents = analysis.suspiciousTorrents.filter(t => t.isDominant);
     const maxDominance = Math.max(...dominantTorrents.map(t => parseFloat(t.dominanceRatio || '0')));
@@ -73,7 +84,7 @@ function generateDetailedBanReason(analysis: AnalysisResult): string {
     }
   }
 
-  // 6. Ratio Impossible
+  // 7. Ratio Impossible
   if (reasonsArray.some(r => r.includes('Ratio impossible'))) {
     const impossibleTorrents = analysis.suspiciousTorrents.filter(t => t.isImpossibleRatio);
     const worst = impossibleTorrents.reduce((a, b) => (a.actualRatio > b.actualRatio) ? a : b);
@@ -239,22 +250,32 @@ async function analyzeSuspiciousDownloads(userId: number) {
 }
 
 async function displayUserId() {
-  if (!ApiInterceptor.isUserProfilePage()) return;
+  if (!UrlParser.isUserProfilePage()) return;
 
-  const userId = await ApiInterceptor.getUserId();
-  if (!userId) return;
+  const username = UrlParser.getUsernameFromUrl();
+  if (!username) return;
 
-  const h1 = document.querySelector('h1.text-2xl.font-bold') || document.querySelector('h1');
-  if (!h1 || document.getElementById('c411-user-id-badge')) return;
+  try {
+    const profile = await C411ApiClient.getUserProfile(username);
+    if (!profile) return;
 
-  const idBadge = document.createElement('span');
-  idBadge.id = 'c411-user-id-badge';
-  idBadge.className = 'inline-flex items-center font-semibold rounded-full border px-2.5 py-1 text-sm gap-1.5 ml-2';
-  idBadge.style.cssText = 'background-color: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.3); color: rgb(59, 130, 246);';
-  idBadge.innerHTML = `<span>🆔</span><span>ID: ${userId}</span>`;
-  
-  h1.parentElement?.appendChild(idBadge);
-  analyzeSuspiciousDownloads(userId);
+    const userId = profile.id;
+    (window as any).__c411_captured_user_id = userId;
+
+    const h1 = document.querySelector('h1.text-2xl.font-bold') || document.querySelector('h1');
+    if (!h1 || document.getElementById('c411-user-id-badge')) return;
+
+    const idBadge = document.createElement('span');
+    idBadge.id = 'c411-user-id-badge';
+    idBadge.className = 'inline-flex items-center font-semibold rounded-full border px-2.5 py-1 text-sm gap-1.5 ml-2';
+    idBadge.style.cssText = 'background-color: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.3); color: rgb(59, 130, 246);';
+    idBadge.innerHTML = `<span>🆔</span><span>ID: ${userId}</span>`;
+    
+    h1.parentElement?.appendChild(idBadge);
+    analyzeSuspiciousDownloads(userId);
+  } catch (error) {
+    console.error('[UserProfile] Erreur récupération ID via API:', error);
+  }
 }
 
 export function initializeUserProfile() {
@@ -263,7 +284,6 @@ export function initializeUserProfile() {
   const observer = new MutationObserver(() => {
     if (lastUrl !== window.location.href) {
       lastUrl = window.location.href;
-      ApiInterceptor.clearCache();
       setTimeout(displayUserId, 300);
     }
   });

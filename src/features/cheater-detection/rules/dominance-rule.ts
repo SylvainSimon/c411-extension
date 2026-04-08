@@ -4,6 +4,7 @@ import { FormatUtils } from '../../../core/utils/format-utils';
 CheatRuleRegistry.register({
   id: 'dominance',
   name: 'Domination suspecte',
+  type: 'torrent',
   check({ topSnatchers, userId }) {
     if (!topSnatchers || topSnatchers.length < 2) return null;
 

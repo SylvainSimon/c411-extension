@@ -3,8 +3,9 @@ import { CheatRuleRegistry } from '../cheat-rule-registry';
 CheatRuleRegistry.register({
   id: 'late-activity',
   name: 'Activité tardive',
+  type: 'torrent',
   check({ snatch, metadata }) {
-    if (!metadata || !metadata.createdAt) return null;
+    if (!snatch || !metadata || !metadata.createdAt) return null;
 
     const torrentCreatedAt = new Date(metadata.createdAt).getTime();
     const userFirstAction = new Date(snatch.firstAction).getTime();

@@ -8,6 +8,7 @@ import './features/cheater-detection/rules/suspicious-speed-rule';
 import './features/cheater-detection/rules/late-activity-rule';
 import './features/cheater-detection/rules/impossible-ratio-rule';
 import './features/cheater-detection/rules/dominance-rule';
+import './features/cheater-detection/rules/identical-upload-rule';
 
 /**
  * Initialisation de l'extension

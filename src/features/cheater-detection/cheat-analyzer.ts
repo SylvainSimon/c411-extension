@@ -42,16 +42,28 @@ export const CheatAnalyzer = {
     let totalUploaded = 0;
     let totalDownloaded = 0;
     const suspiciousTorrents: SuspiciousTorrent[] = [];
-    const rules = CheatRuleRegistry.getRules();
+    const globalWarnings: string[] = [];
+    const allRules = CheatRuleRegistry.getRules();
+    
+    const accountRules = allRules.filter(r => r.type === 'account');
+    const torrentRules = allRules.filter(r => r.type === 'torrent');
 
+    // 1. Analyse au niveau du compte
+    const accountContext: RuleContext = { allSnatches: snatches, thresholds, userId };
+    for (const rule of accountRules) {
+      const warning = rule.check(accountContext);
+      if (warning) globalWarnings.push(warning);
+    }
+
+    // 2. Analyse au niveau des torrents (Passe rapide)
     for (const snatch of snatches) {
       totalUploaded += snatch.actualUploaded;
       totalDownloaded += snatch.size;
 
       const stats = this._calculateSnatchStats(snatch);
-      const context: RuleContext = { snatch, stats, thresholds, userId };
+      const context: RuleContext = { snatch, allSnatches: snatches, stats, thresholds, userId };
       
-      const reasons = rules
+      const reasons = torrentRules
         .map(rule => rule.check(context))
         .filter((r): r is string => r !== null);
 
@@ -67,14 +79,15 @@ export const CheatAnalyzer = {
       }
     }
 
+    // 3. Analyse approfondie (Top 5 suspects)
     suspiciousTorrents.sort((a, b) => b.ratioBySize - a.ratioBySize);
     const topSuspects = suspiciousTorrents.slice(0, 5);
 
     for (const torrent of topSuspects) {
-      await this._enrichWithDeepAnalysis(torrent, userId, thresholds);
+      await this._enrichWithDeepAnalysis(torrent, userId, thresholds, snatches, torrentRules);
     }
 
-    const scoring = this._calculateGlobalScore(suspiciousTorrents, snatches.length);
+    const scoring = this._calculateGlobalScore(suspiciousTorrents, snatches.length, globalWarnings);
 
     return {
       userId,
@@ -83,6 +96,7 @@ export const CheatAnalyzer = {
       totalDownloaded,
       globalRatio: totalDownloaded > 0 ? (totalUploaded / totalDownloaded).toFixed(2) : '0',
       suspiciousTorrents,
+      globalWarnings,
       mostSuspicious: suspiciousTorrents[0] || null,
       ...scoring
     };
@@ -95,7 +109,6 @@ export const CheatAnalyzer = {
     const lastAction = new Date(snatch.lastAction).getTime();
     const seedingTimeSeconds = snatch.seedingTime || 0;
     
-    // Période totale d'activité connue (en secondes)
     const elapsedSeconds = (lastAction - firstAction) / 1000;
 
     let downloadTimeSeconds = 0;
@@ -108,16 +121,13 @@ export const CheatAnalyzer = {
     let isCrossSeed = false;
 
     if (snatch.completedAt && downloadTimeSeconds > 0) {
-      // Torrent complété : temps actif = temps de téléchargement + temps de seed
       totalActiveTime = downloadTimeSeconds + seedingTimeSeconds;
       uploadSpeedMbps = CheatStats.calculateSpeedMbps(snatch.actualUploaded, totalActiveTime);
     } else if (seedingTimeSeconds > 0) {
-      // Torrent non complété avec seedingTime : probablement du cross-seed
       totalActiveTime = seedingTimeSeconds;
       uploadSpeedMbps = CheatStats.calculateSpeedMbps(snatch.actualUploaded, seedingTimeSeconds);
       isCrossSeed = true;
     } else if (elapsedSeconds > 0) {
-      // Fallback : période entre première et dernière action
       totalActiveTime = elapsedSeconds;
       uploadSpeedMbps = CheatStats.calculateSpeedMbps(snatch.actualUploaded, elapsedSeconds);
     }
@@ -140,7 +150,7 @@ export const CheatAnalyzer = {
     };
   },
 
-  async _enrichWithDeepAnalysis(torrent: SuspiciousTorrent, userId: number, thresholds: AppConfig) {
+  async _enrichWithDeepAnalysis(torrent: SuspiciousTorrent, userId: number, thresholds: AppConfig, allSnatches: SnatchData[], torrentRules: any[]) {
     try {
       const [metadata, torrentStats, topSnatchers] = await Promise.all([
         C411ApiClient.getTorrentMetadata(torrent.infoHash),
@@ -150,6 +160,7 @@ export const CheatAnalyzer = {
 
       const context: RuleContext = { 
         snatch: torrent, 
+        allSnatches,
         stats: torrent, 
         thresholds, 
         userId, 
@@ -158,7 +169,7 @@ export const CheatAnalyzer = {
         topSnatchers 
       };
 
-      const allReasons = CheatRuleRegistry.getRules()
+      const allReasons = torrentRules
         .map(rule => rule.check(context))
         .filter((r): r is string => r !== null);
 
@@ -166,7 +177,6 @@ export const CheatAnalyzer = {
 
       if (metadata && metadata.createdAt) {
         torrent.torrentCreatedAt = metadata.createdAt;
-        // Utilise le nom officiel du post C411 si disponible
         if (metadata.name) {
           torrent.name = metadata.name;
         }
@@ -204,16 +214,16 @@ export const CheatAnalyzer = {
     }
   },
 
-  _calculateGlobalScore(suspiciousTorrents: SuspiciousTorrent[], totalDownloads: number) {
-    if (suspiciousTorrents.length === 0) {
-      return { suspicionScore: 0, suspicionLevel: 'clean' as const, suspicionMessage: 'Aucun comportement suspect' };
-    }
-
+  _calculateGlobalScore(suspiciousTorrents: SuspiciousTorrent[], totalDownloads: number, globalWarnings: string[]) {
     const suspectCount = suspiciousTorrents.length;
     const suspectPercentage = (suspectCount / totalDownloads) * 100;
-    const avgSuspiciousRatio = suspiciousTorrents.reduce((sum, t) => sum + t.ratioBySize, 0) / suspectCount;
+    const avgSuspiciousRatio = suspectCount > 0 ? suspiciousTorrents.reduce((sum, t) => sum + t.ratioBySize, 0) / suspectCount : 0;
 
     let score = (suspectCount * 10) + (suspectPercentage * 2) + (Math.min(avgSuspiciousRatio, 200) / 2);
+    
+    // Bonus pour les alertes globales
+    score += globalWarnings.length * 50;
+    
     score = Math.round(score);
 
     let level: AnalysisResult['suspicionLevel'];
@@ -221,16 +231,20 @@ export const CheatAnalyzer = {
 
     if (score >= 150) {
       level = 'critical';
-      message = suspectCount > 1 ? 'Triche très probable - Multiples torrents suspects' : 'Triche très probable - Upload extrêmement suspect';
+      message = score > 200 ? 'Triche avérée - Pattern global suspect' : 'Triche très probable - Multiples preuves';
     } else if (score >= 80) {
       level = 'high';
-      message = suspectCount > 1 ? 'Comportement très suspect - Plusieurs torrents problématiques' : 'Comportement très suspect - Investigation recommandée';
+      message = 'Comportement très suspect - Investigation recommandée';
     } else if (score >= 40) {
       level = 'medium';
-      message = suspectCount > 1 ? 'Comportement suspect - Plusieurs torrents à surveiller' : 'Comportement suspect - À surveiller';
+      message = 'Comportement suspect - À surveiller';
     } else {
       level = 'low';
       message = 'Légèrement suspect';
+    }
+
+    if (score === 0) {
+      return { suspicionScore: 0, suspicionLevel: 'clean' as const, suspicionMessage: 'Aucun comportement suspect' };
     }
 
     return { suspicionScore: score, suspicionLevel: level, suspicionMessage: message };

@@ -4,8 +4,9 @@ import { FormatUtils } from '../../../core/utils/format-utils';
 CheatRuleRegistry.register({
   id: 'suspicious-speed',
   name: 'Débit suspect',
+  type: 'torrent',
   check({ stats }) {
-    if (stats.uploadSpeedMbps > 1000) {
+    if (stats && stats.uploadSpeedMbps > 1000) {
       const formatted = FormatUtils.formatSpeed(stats.uploadSpeedMbps);
       return `Débit suspect (${formatted})`;
     }

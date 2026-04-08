@@ -10,6 +10,18 @@
       <span>{{ suspectCountFormatted }} torrent{{ analysis.suspiciousTorrents|length > 1 ? 's' : '' }} suspect{{ analysis.suspiciousTorrents|length > 1 ? 's' : '' }}</span>
     </div>
   </div>
+
+  {% if analysis.globalWarnings|length > 0 %}
+    <div class="p-3 bg-orange-500/10 border-b border-orange-500/20 space-y-1.5">
+      <div class="text-[11px] font-bold text-orange-400 uppercase tracking-wider">⚠️ Alertes de compte :</div>
+      {% for warning in analysis.globalWarnings %}
+        <div class="text-xs text-orange-200 flex gap-2">
+          <span>•</span>
+          <span>{{ warning }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
   
   <div>
     {% for torrent in topSuspects %}

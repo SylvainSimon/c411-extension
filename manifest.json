@@ -21,15 +21,6 @@
         "https://*.c411.org/*"
       ],
       "js": [
-        "src/core/parsers/api-interceptor.ts"
-      ],
-      "run_at": "document_start"
-    },
-    {
-      "matches": [
-        "https://*.c411.org/*"
-      ],
-      "js": [
         "src/main.ts"
       ],
       "run_at": "document_idle"

@@ -38,6 +38,7 @@ export interface AnalysisResult {
   totalDownloaded: number;
   globalRatio: string;
   suspiciousTorrents: SuspiciousTorrent[];
+  globalWarnings: string[]; // Nouvelles alertes au niveau du compte
   mostSuspicious: SuspiciousTorrent | null;
   suspicionScore: number;
   suspicionLevel: 'clean' | 'low' | 'medium' | 'high' | 'critical';
@@ -45,8 +46,9 @@ export interface AnalysisResult {
 }
 
 export interface RuleContext {
-  snatch: SnatchData;
-  stats: SnatchStats;
+  snatch?: SnatchData; // Optionnel pour les règles globales
+  allSnatches: SnatchData[];
+  stats?: SnatchStats; // Optionnel pour les règles globales
   thresholds: AppConfig;
   userId: number;
   metadata?: any;
@@ -57,5 +59,6 @@ export interface RuleContext {
 export interface CheatRule {
   id: string;
   name: string;
+  type: 'torrent' | 'account'; // Nouveau : permet de distinguer les règles
   check: (context: RuleContext) => string | null;
 }
