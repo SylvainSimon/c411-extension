@@ -62,7 +62,7 @@
                             <span class="t-name" title="{{ t.name }}">{{ t.name }}</span>
                             <div class="t-stats">
                                 <span class="t-badge ratio">Ratio {{ t.actualRatioFormatted }}</span>
-                                <span class="t-badge speed">{{ t.uploadSpeedMbps|round }} Mb/s</span>
+                                <span class="t-badge speed">{{ t.uploadSpeedFormatted }}</span>
                                 {% if t.isDominant %}<span class="t-badge dom">Dom. {{ t.dominanceRatio }}x</span>{% endif %}
                                 {% if t.isLateActivity %}<span class="t-badge late">+{{ t.delayFromCreationDays|round }}j</span>{% endif %}
                             </div>

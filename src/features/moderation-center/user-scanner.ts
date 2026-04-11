@@ -140,12 +140,19 @@ export class UserScanner {
 
         const banReason = BanUtils.generateBanReason(analysis);
 
+        // On formate les vitesses pour l'accordéon afin d'avoir la même unité que le badge
+        const enrichedTorrents = st.map(t => ({
+            ...t,
+            uploadSpeedFormatted: FormatUtils.formatSpeed(t.uploadSpeedMbps)
+        }));
+
         return TemplateEngine.render(userRowTemplate, { 
             user, flags, 
             createdAtFormatted: FormatUtils.formatDate(user.createdAt), 
             suspicionScore: analysis.suspicionScore, 
             suspicionLevel: analysis.suspicionLevel, 
-            banReason, analysis
+            banReason, 
+            analysis: { ...analysis, suspiciousTorrents: enrichedTorrents }
         });
     }
 
