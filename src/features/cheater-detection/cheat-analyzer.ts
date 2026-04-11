@@ -2,7 +2,7 @@ import { C411ApiClient } from '../../core/api/c411-client';
 import { SnatchData } from '../../types/api';
 import { Config } from '../../core/config/config';
 import { CheatRuleRegistry } from './cheat-rule-registry';
-import { AppConfig } from '../../types/config';
+import { FormatUtils } from '../../core/utils/format-utils';
 import { SnatchStats, SuspiciousTorrent, AnalysisResult, RuleContext } from '../../types/cheat-detection';
 
 export const CheatStats = {
@@ -72,14 +72,14 @@ export const CheatAnalyzer = {
   _calculateSnatchStats(snatch: SnatchData): SnatchStats {
     const ratioBySize = CheatStats.calculateRatioBySize(snatch.actualUploaded, snatch.size);
     const multiples = CheatStats.analyzeMultiples(snatch.actualDownloaded, snatch.size);
-    const firstAction = new Date(snatch.firstAction).getTime();
-    const lastAction = new Date(snatch.lastAction).getTime();
+    const firstAction = FormatUtils.parseDate(snatch.firstAction).getTime();
+    const lastAction = FormatUtils.parseDate(snatch.lastAction).getTime();
     const seedingTimeSeconds = snatch.seedingTime || 0;
     const elapsedSeconds = (lastAction - firstAction) / 1000;
 
     let uploadSpeedMbps = 0;
     if (snatch.completedAt) {
-      const downloadTimeSeconds = (new Date(snatch.completedAt).getTime() - firstAction) / 1000;
+      const downloadTimeSeconds = (FormatUtils.parseDate(snatch.completedAt).getTime() - firstAction) / 1000;
       uploadSpeedMbps = CheatStats.calculateSpeedMbps(snatch.actualUploaded, downloadTimeSeconds + seedingTimeSeconds);
     } else {
       uploadSpeedMbps = CheatStats.calculateSpeedMbps(snatch.actualUploaded, seedingTimeSeconds || elapsedSeconds);
@@ -111,7 +111,12 @@ export const CheatAnalyzer = {
       // ASSIGNATION DES METADONNEES POUR L'INTERFACE
       if (metadata) {
         torrent.torrentCreatedAt = metadata.createdAt;
-        torrent.name = metadata.name; 
+        torrent.name = metadata.name;
+        
+        // CALCUL DU DELAI POUR LE BADGE TARDIF
+        const tCreate = FormatUtils.parseDate(metadata.createdAt).getTime();
+        const uFirst = FormatUtils.parseDate(torrent.firstAction).getTime();
+        torrent.delayFromCreationDays = Math.max(0, (uFirst - tCreate) / 86400000);
       }
       if (torrentStats) {
         torrent.torrentCompletions = torrentStats.completions;

@@ -1,7 +1,7 @@
-<tr class="c411-mod-user-row" 
+<tr class="c411-mod-user-row main-row" 
     data-user-id="{{ user.id }}" 
     data-score="{{ suspicionScore }}"
-    data-flags="{{ flags|join(',') }}">
+    data-flags="{{ flags|keys|join(',') }}">
     <td>
         <div class="user-info">
             <span class="username">{{ user.username }}</span>
@@ -16,35 +16,101 @@
     </td>
     <td>
         <div class="detection-badges">
-            {% if 'late' in flags %}<span class="det-badge late" title="Activité Tardive">🕒 Tardif</span>{% endif %}
-            {% if 'rank1' in flags %}<span class="det-badge rank1" title="Rang #1 au classement">🥇 Rang #1</span>{% endif %}
-            {% if 'dominant' in flags %}<span class="det-badge dominant" title="Domination (Upload x10)">👑 Dominant</span>{% endif %}
-            {% if 'fast' in flags %}<span class="det-badge fast" title="Débit > 1Gbps">🚀 Rapide</span>{% endif %}
-            {% if 'ratio' in flags %}<span class="det-badge ratio" title="Ratio Torrent > 50">📊 Gros Ratio</span>{% endif %}
-            {% if 'identical' in flags %}<span class="det-badge identical" title="Uploads identiques">🔄 Identique</span>{% endif %}
+            {% if flags.late %}<span class="det-badge late" title="Plus long délai après publication">🕒 {{ flags.late }}</span>{% endif %}
+            {% if flags.rank1 %}<span class="det-badge rank1" title="Rang #1 au classement">🥇 {{ flags.rank1 }}</span>{% endif %}
+            {% if flags.dominant %}<span class="det-badge dominant" title="Domination sur un torrent">👑 {{ flags.dominant }}</span>{% endif %}
+            {% if flags.fast %}<span class="det-badge fast" title="Débit maximum relevé">🚀 {{ flags.fast }}</span>{% endif %}
+            {% if flags.ratio %}<span class="det-badge ratio" title="Ratio maximum sur un torrent">📊 {{ flags.ratio }}</span>{% endif %}
+            {% if flags.identical %}<span class="det-badge identical" title="Uploads identiques synchronisés">🔄 {{ flags.identical }}</span>{% endif %}
         </div>
     </td>
     <td>
         <div class="row-actions">
             <button class="c411-mod-btn-small refresh-user" title="Vérifier si banni">🔄</button>
-            <button class="c411-mod-btn-small view-details" title="Voir l'analyse détaillée">🔍</button>
-            <a href="/user/{{ user.username }}" target="_blank" class="c411-mod-btn-small" title="Ouvrir le profil">👤</a>
+            <a href="/user/{{ user.username }}" target="_blank" class="c411-mod-btn-small" title="Ouvrir le profil" onclick="event.stopPropagation()">👤</a>
             {% if suspicionLevel == 'critical' or suspicionLevel == 'high' %}
                 <button class="c411-mod-btn-small danger ban-user" 
                         data-user-id="{{ user.id }}" 
                         data-username="{{ user.username }}"
                         data-reason="{{ banReason }}"
-                        title="Bannir">🚫</button>
+                        title="Bannir"
+                        onclick="event.stopPropagation()">🚫</button>
             {% endif %}
+        </div>
+    </td>
+</tr>
+<tr class="c411-mod-user-row detail-row" data-user-id="{{ user.id }}" style="display: none;">
+    <td colspan="5">
+        <div class="accordion-content">
+            <div class="analysis-summary">
+                {% if analysis.globalWarnings|length > 0 %}
+                <div class="warnings-section">
+                    <span class="section-title">⚠️ ALERTES GLOBALES :</span>
+                    <ul>
+                        {% for warning in analysis.globalWarnings %}
+                        <li>{{ warning }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
+                <div class="torrents-section">
+                    <span class="section-title">📂 TORRENTS SUSPECTS ({{ analysis.suspiciousTorrents|length }}) :</span>
+                    <div class="torrents-grid">
+                        {% for t in analysis.suspiciousTorrents|slice(0, 10) %}
+                        <div class="torrent-mini-card">
+                            <span class="t-name" title="{{ t.name }}">{{ t.name }}</span>
+                            <div class="t-stats">
+                                <span class="t-badge ratio">Ratio {{ t.actualRatioFormatted }}</span>
+                                <span class="t-badge speed">{{ t.uploadSpeedMbps|round }} Mb/s</span>
+                                {% if t.isDominant %}<span class="t-badge dom">Dom. {{ t.dominanceRatio }}x</span>{% endif %}
+                                {% if t.isLateActivity %}<span class="t-badge late">+{{ t.delayFromCreationDays|round }}j</span>{% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% if analysis.suspiciousTorrents|length > 10 %}
+                        <div class="more-torrents">... et {{ analysis.suspiciousTorrents|length - 10 }} autres</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="ban-synthese">
+                    <span class="section-title">📝 SYNTHÈSE PREUVES :</span>
+                    <div class="synthese-text">{{ banReason }}</div>
+                </div>
+            </div>
         </div>
     </td>
 </tr>
 
 <style>
+    .c411-mod-user-row.main-row { cursor: pointer; transition: background 0.2s; }
+    .c411-mod-user-row.main-row:hover { background: rgba(138, 180, 248, 0.05); }
+    .c411-mod-user-row.main-row.active { background: rgba(138, 180, 248, 0.1); border-left: 3px solid var(--primary); }
+    
+    .detail-row { background: #292a2d; border-top: 1px solid var(--border); }
+    .accordion-content { padding: 15px 20px; border-left: 3px solid var(--primary); }
+    
+    .section-title { font-size: 0.65em; font-weight: 800; color: var(--secondary); text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 8px; }
+    
+    .warnings-section { margin-bottom: 15px; }
+    .warnings-section ul { margin: 0; padding-left: 20px; color: var(--danger); font-size: 0.85em; }
+    
+    .torrents-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; margin-bottom: 15px; }
+    .torrent-mini-card { background: #303134; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; }
+    .t-name { font-size: 0.8em; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+    .t-stats { display: flex; gap: 5px; flex-wrap: wrap; }
+    .t-badge { font-size: 0.65em; padding: 1px 5px; border-radius: 3px; font-weight: bold; }
+    .t-badge.ratio { background: rgba(242, 139, 130, 0.2); color: #f28b82; }
+    .t-badge.speed { background: rgba(129, 201, 149, 0.2); color: #81c995; }
+    .t-badge.dom { background: rgba(253, 214, 99, 0.2); color: #fdd663; }
+    .t-badge.late { background: rgba(138, 180, 248, 0.2); color: #8ab4f8; }
+    
+    .synthese-text { font-size: 0.85em; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 4px; border-left: 2px solid var(--secondary); color: var(--secondary); font-style: italic; }
+    
     .user-info { display: flex; flex-direction: column; }
     .username { font-weight: bold; color: var(--primary); }
     .user-id { font-size: 0.75em; color: var(--secondary); font-family: monospace; }
-    .c411-mod-user-row:hover { background: var(--row-hover); }
     
     .detection-badges { display: flex; flex-wrap: wrap; gap: 6px; }
     .det-badge { padding: 2px 8px; border-radius: 4px; font-size: 0.75em; font-weight: bold; text-transform: uppercase; border: 1px solid rgba(255,255,255,0.1); }

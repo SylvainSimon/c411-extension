@@ -7,6 +7,7 @@ import { UserListData } from '../../types/api';
 import { ModerationCenter } from './moderation-center';
 import { AnalysisResult } from '../../types/cheat-detection';
 import { HistoryService } from './history-service';
+import { BanUtils } from '../../core/utils/ban-utils';
 
 export class UserScanner {
     public isCancelled = false;
@@ -107,16 +108,51 @@ export class UserScanner {
     }
 
     public prepareRowHtml(user: UserListData, analysis: AnalysisResult) {
-        const flags: string[] = [];
+        const flags: Record<string, string> = {};
         const st = analysis.suspiciousTorrents || [];
         const gw = analysis.globalWarnings || [];
-        if (st.some(t => t.isLateActivity)) flags.push('late');
-        if (st.some(t => (t as any).userRank === 1)) flags.push('rank1');
-        if (st.some(t => t.isDominant)) flags.push('dominant');
-        if (st.some(t => t.uploadSpeedMbps > 1000)) flags.push('fast');
-        if (st.some(t => t.actualRatio > 50)) flags.push('ratio');
-        if (gw.some(w => w.includes('identiques'))) flags.push('identical');
-        return TemplateEngine.render(userRowTemplate, { user, flags, createdAtFormatted: FormatUtils.formatDate(user.createdAt), totalSnatches: analysis.totalDownloads || 0, suspicionScore: analysis.suspicionScore, suspicionLevel: analysis.suspicionLevel, suspicionMessage: analysis.suspicionMessage });
+        
+        if (st.some(t => t.isLateActivity)) {
+            const lateTorrents = st.filter(t => t.isLateActivity);
+            // Sécurité : recalculer si la valeur est absente ou 0 alors que le flag est présent
+            lateTorrents.forEach(t => {
+                if (!t.delayFromCreationDays && t.torrentCreatedAt) {
+                    const tCreate = FormatUtils.parseDate(t.torrentCreatedAt).getTime();
+                    const uFirst = FormatUtils.parseDate(t.firstAction).getTime();
+                    t.delayFromCreationDays = Math.max(0, (uFirst - tCreate) / 86400000);
+                }
+            });
+            const maxDays = Math.max(...lateTorrents.map(t => t.delayFromCreationDays || 0));
+            flags.late = `${Math.round(maxDays)}j`;
+        }
+        if (st.some(t => (t as any).userRank === 1)) flags.rank1 = '#1';
+        if (st.some(t => t.isDominant)) {
+            const maxDom = Math.max(...st.filter(t => t.isDominant).map(t => parseFloat(t.dominanceRatio || '0')));
+            flags.dominant = `${FormatUtils.formatNumber(maxDom)}x`;
+        }
+        if (st.some(t => t.uploadSpeedMbps > 1000)) {
+            const maxSpeed = Math.max(...st.map(t => t.uploadSpeedMbps));
+            flags.fast = FormatUtils.formatSpeed(maxSpeed); 
+        }
+        if (st.some(t => t.actualRatio > 50)) {
+            const maxRatio = Math.max(...st.map(t => t.actualRatio));
+            flags.ratio = FormatUtils.formatNumber(maxRatio);
+        }
+        if (gw.some(w => w.includes('identiques'))) flags.identical = 'SYNCHRO';
+
+        const banReason = BanUtils.generateBanReason(analysis);
+
+        return TemplateEngine.render(userRowTemplate, { 
+            user, 
+            flags, 
+            createdAtFormatted: FormatUtils.formatDate(user.createdAt), 
+            totalSnatches: analysis.totalDownloads || 0, 
+            suspicionScore: analysis.suspicionScore, 
+            suspicionLevel: analysis.suspicionLevel, 
+            suspicionMessage: analysis.suspicionMessage,
+            banReason,
+            analysis // On passe tout l'objet pour l'accordéon
+        });
     }
 
     public attachRowEvents(row: HTMLElement, user: UserListData, analysis: AnalysisResult) {
@@ -130,7 +166,6 @@ export class UserScanner {
         if (st.some(t => t.actualRatio > 50)) flags.push('ratio');
         if ((analysis.globalWarnings || []).some(w => w.includes('identiques'))) flags.push('identical');
         row.setAttribute('data-flags', flags.join(','));
-        row.querySelector('.view-details')?.addEventListener('click', () => { ModerationCenter.getInstance().showDetails(analysis, user.username); });
     }
 
     private updateProgressBar() {

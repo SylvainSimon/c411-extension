@@ -67,14 +67,29 @@
                 <header class="results-header">
                     <div class="header-main">
                         <h2 id="c411-current-title">Nouvelle Analyse</h2>
-                        <div class="pattern-filters">
-                            <span class="label">Filtrer :</span>
-                            <button class="pat-btn" data-flag="late">🕒 Tardif</button>
-                            <button class="pat-btn" data-flag="rank1">🥇 Rang #1</button>
-                            <button class="pat-btn" data-flag="dominant">👑 Dominant</button>
-                            <button class="pat-btn" data-flag="fast">🚀 Rapide</button>
-                            <button class="pat-btn" data-flag="ratio">📊 Ratio</button>
-                            <button class="pat-btn" data-flag="identical">🔄 Identique</button>
+                        <div class="header-controls">
+                            <div class="pattern-filters">
+                                <span class="label">Filtrer :</span>
+                                <button class="pat-btn" data-flag="late">🕒 Tardif</button>
+                                <button class="pat-btn" data-flag="rank1">🥇 Rang #1</button>
+                                <button class="pat-btn" data-flag="dominant">👑 Dominant</button>
+                                <button class="pat-btn" data-flag="fast">🚀 Rapide</button>
+                                <button class="pat-btn" data-flag="ratio">📊 Ratio</button>
+                                <button class="pat-btn" data-flag="identical">🔄 Identique</button>
+                                <button class="pat-btn" data-flag="onesnatch">🎯 1 Snatch</button>
+                            </div>
+                            <div class="sort-group">
+                                <span class="label">Trier par :</span>
+                                <select id="c411-sort-by" class="c411-mod-input sort-select">
+                                    <option value="">Par défaut (Reçus)</option>
+                                    <option value="score_desc">🔥 Score (Max)</option>
+                                    <option value="date_desc">📅 Date (Récent)</option>
+                                    <option value="date_asc">📅 Date (Ancien)</option>
+                                    <option value="speed_desc">🚀 Vitesse (Max)</option>
+                                    <option value="ratio_desc">📊 Ratio (Max)</option>
+                                    <option value="late_desc">🕒 Retard (Max)</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                     
@@ -155,12 +170,15 @@
     .c411-mod-content { flex: 1; padding: 24px; overflow-y: auto; background: var(--bg-body); display: flex; flex-direction: column; gap: 20px; }
     .results-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border); padding-bottom: 15px; }
     .header-main { display: flex; flex-direction: column; gap: 12px; }
+    .header-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 20px; }
     .results-header h2 { margin: 0; font-size: 1.3em; color: var(--primary); }
     
-    .pattern-filters { display: flex; align-items: center; gap: 6px; }
-    .pattern-filters .label { font-size: 0.7em; color: var(--secondary); font-weight: bold; text-transform: uppercase; margin-right: 4px; }
+    .pattern-filters, .sort-group { display: flex; align-items: center; gap: 6px; }
+    .pattern-filters .label, .sort-group .label { font-size: 0.7em; color: var(--secondary); font-weight: bold; text-transform: uppercase; margin-right: 4px; }
     .pat-btn { background: #3c4043; border: 1px solid var(--border); color: var(--secondary); padding: 3px 10px; border-radius: 15px; font-size: 0.75em; cursor: pointer; }
     .pat-btn.active { background: var(--primary-dark); border-color: var(--primary); color: white; }
+
+    .sort-select { padding: 4px 8px; font-size: 0.75em; border-radius: 15px; background: #3c4043; color: var(--primary); font-weight: bold; cursor: pointer; }
 
     .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
     .btn-clean { background: rgba(138, 180, 248, 0.05); border: 1px solid var(--primary); color: var(--primary); padding: 4px 12px; border-radius: 4px; font-size: 0.8em; cursor: pointer; font-weight: bold; }

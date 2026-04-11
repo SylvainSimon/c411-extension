@@ -146,11 +146,24 @@ export class ModerationCenter {
         this.shadow.getElementById('c411-delete-session')?.addEventListener('click', () => this.deleteCurrentSession());
         this.shadow.getElementById('c411-clear-all-sessions')?.addEventListener('click', () => this.clearAllSessions());
         this.shadow.getElementById('c411-session-selector')?.addEventListener('change', (e) => this.loadSession((e.target as HTMLSelectElement).value));
+        this.shadow.getElementById('c411-sort-by')?.addEventListener('change', () => this.applyAllFilters());
 
         this.shadow.addEventListener('click', async (e) => {
             const target = e.target as HTMLElement;
+            const mainRow = target.closest('.main-row') as HTMLElement;
             const banBtn = target.closest('.ban-user') as HTMLButtonElement;
             const refreshBtn = target.closest('.refresh-user') as HTMLButtonElement;
+
+            if (mainRow && !banBtn && !refreshBtn && !target.closest('a')) {
+                const userId = mainRow.getAttribute('data-user-id');
+                const detailRow = this.shadow!.querySelector(`.detail-row[data-user-id="${userId}"]`) as HTMLElement;
+                if (detailRow) {
+                    const isVisible = detailRow.style.display === 'table-row';
+                    detailRow.style.display = isVisible ? 'none' : 'table-row';
+                    mainRow.classList.toggle('active', !isVisible);
+                }
+                return;
+            }
 
             if (banBtn) {
                 const userId = parseInt(banBtn.getAttribute('data-user-id') || '0');
@@ -197,13 +210,55 @@ export class ModerationCenter {
 
     public applyAllFilters() {
         if (!this.shadow) return;
-        const filtered = this.allSessionEntries.filter(entry => {
-            if (this.activePatternFlags.size === 0) return true;
-            const flags = this.calculateFlags(entry.analysis);
-            let match = true;
-            this.activePatternFlags.forEach(f => { if (!flags.includes(f)) match = false; });
-            return match;
-        });
+        
+        let filtered = [...this.allSessionEntries];
+        
+        // 1. Filtrage par flags
+        if (this.activePatternFlags.size > 0) {
+            filtered = filtered.filter(entry => {
+                const flags = this.calculateFlags(entry.analysis);
+                let match = true;
+                this.activePatternFlags.forEach(f => { if (!flags.includes(f)) match = false; });
+                return match;
+            });
+        }
+
+        // 2. Tri
+        const sortVal = (this.shadow.getElementById('c411-sort-by') as HTMLSelectElement)?.value;
+        if (sortVal) {
+            const [key, order] = sortVal.split('_');
+            filtered.sort((a, b) => {
+                let valA: number, valB: number;
+                
+                switch(key) {
+                    case 'score':
+                        valA = a.analysis.suspicionScore;
+                        valB = b.analysis.suspicionScore;
+                        break;
+                    case 'date':
+                        valA = new Date(a.user.createdAt).getTime();
+                        valB = new Date(b.user.createdAt).getTime();
+                        break;
+                    case 'speed':
+                        valA = Math.max(0, ...a.analysis.suspiciousTorrents.map(t => t.uploadSpeedMbps));
+                        valB = Math.max(0, ...b.analysis.suspiciousTorrents.map(t => t.uploadSpeedMbps));
+                        break;
+                    case 'ratio':
+                        valA = Math.max(0, ...a.analysis.suspiciousTorrents.map(t => t.actualRatio));
+                        valB = Math.max(0, ...b.analysis.suspiciousTorrents.map(t => t.actualRatio));
+                        break;
+                    case 'late':
+                        valA = Math.max(0, ...a.analysis.suspiciousTorrents.map(t => t.delayFromCreationDays || 0));
+                        valB = Math.max(0, ...b.analysis.suspiciousTorrents.map(t => t.delayFromCreationDays || 0));
+                        break;
+                    default:
+                        return 0;
+                }
+
+                return order === 'asc' ? valA - valB : valB - valA;
+            });
+        }
+
         const resultsTable = this.shadow.getElementById('c411-mod-results')!;
         resultsTable.innerHTML = '';
         const tempScanner = new UserScanner(this.shadow);
@@ -219,6 +274,7 @@ export class ModerationCenter {
         if (st.some(t => t.uploadSpeedMbps > 1000)) flags.push('fast');
         if (st.some(t => t.actualRatio > 50)) flags.push('ratio');
         if ((analysis.globalWarnings || []).some(w => w.includes('identiques'))) flags.push('identical');
+        if (analysis.totalDownloads === 1) flags.push('onesnatch');
         return flags;
     }
 
