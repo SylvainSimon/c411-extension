@@ -17,8 +17,10 @@ Un hub centralisé pour la surveillance proactive du site.
 - **Fonctionnalités** :
     - Scan multi-utilisateurs avec barre de progression.
     - Historique des sessions de scan stocké localement.
-    - Filtrage en temps réel par "Pattern de suspicion" (Flags).
-    - Exportation/Synthèse des preuves pour le ban.
+    - Filtrage en temps réel par "Pattern de suspicion" (Flags) dont un filtre spécifique "1 Snatch".
+    - Tri des résultats (par Score, Date, Vitesse max, Ratio max, Retard max).
+    - Interface en **Accordéon** : un clic sur une ligne suspecte dévoile une synthèse des torrents incriminés sans ouvrir de nouvelle popup.
+    - Exportation/Synthèse des preuves pour le ban via `BanUtils`.
 
 ### 2. Détection de Tricheurs (Cheater Detection)
 L'outil analyse l'historique de téléchargement (snatches) d'un utilisateur pour détecter des anomalies statistiques.
@@ -28,6 +30,9 @@ L'outil analyse l'historique de téléchargement (snatches) d'un utilisateur pou
     - **Règles de Torrent (`torrent`)** :
         - **Pass Rapide (`snatch`)** : Analyse les métadonnées de base de l'historique (ex: `HighRatioRule`, `SuspiciousSpeedRule`).
         - **Analyse Profonde (`deep`)** : Requiert des appels API supplémentaires sur le torrent pour confirmer la triche (ex: `DominanceRule`, `LateActivityRule`, `ImpossibleRatioRule`).
+- **Calculs Robustes** :
+    - **Vitesse d'upload** : Utilise une méthode hybride croisant le temps de *leech* (via `completedAt`), le temps de *seed* déclaré, et la fenêtre temporelle globale (`lastAction - firstAction`) pour éviter les faux positifs causés par des annonces manquantes.
+    - **Délais** : Les comparaisons de dates sont sécurisées et interprétées via `FormatUtils.parseDate()`.
 - **Scoring** : Chaque règle génère un score de suspicion. Un utilisateur est marqué comme "suspect" si son score total dépasse les seuils configurés.
 
 ### 3. Générateur de BBCode (BBCode Generator)
@@ -44,7 +49,7 @@ Automatise la création de fiches de présentation pour les films lors de l'uplo
 
 - **Core (`src/core/`)** :
     - `api/` : Clients typés pour C411 et TMDB.
-    - `utils/` : `FormatUtils` (dates/nombres), `TemplateEngine` (Twig), `BanUtils`.
+    - `utils/` : `FormatUtils` (dates/nombres/vitesses), `TemplateEngine` (Twig), `BanUtils` (génération centralisée de motifs), `sweetalert-theme.ts`.
 - **Features (`src/features/`)** :
     - Logique métier découpée par domaine.
     - Utilisation intensive de `Shadow DOM` pour les overlays afin d'éviter les conflits CSS avec Nuxt.
@@ -59,15 +64,16 @@ Automatise la création de fiches de présentation pour les films lors de l'uplo
 ### Normalisation des Données
 - **Dates** : Toujours utiliser `FormatUtils.parseDate()` (force l'interprétation UTC).
 - **Nombres** : `FormatUtils.formatNumber()` (Notation française : espaces insécables).
+- **Vitesses** : `FormatUtils.formatSpeed()` (Conversion automatique en Mo/s ou Go/s).
 - **Durées** : `FormatUtils.formatDuration()` (Padding des zéros : `2h05`).
 
 ### Interface Utilisateur (UI)
 - **Isolation** : Toute UI complexe *doit* être encapsulée dans un `ShadowRoot`.
-- **Boîtes de dialogue** : Utiliser exclusivement **SweetAlert2** (`Swal.fire`) au lieu des fonctions natives `alert`, `confirm` ou `prompt`.
-- **Design** : Respecter la charte graphique de C411 (couleurs sombres, accents bleus/verts). Configurer `Swal` avec `background: '#1a1a1a'` et `color: '#fff'`.
-- **Réactivité** : Gérer le chargement asynchrone (spinners, skeleton screens) pour ne pas bloquer l'interface.
+- **Boîtes de dialogue** : Utiliser exclusivement **SweetAlert2** via le mixin personnalisé `C411Swal` (`import { C411Swal as Swal } from '../../core/utils/sweetalert-theme'`) au lieu des fonctions natives `alert`, `confirm` ou `prompt`.
+- **Design** : Respecter la charte graphique de C411 (couleurs sombres, accents bleus/verts).
+- **Réactivité** : Gérer le chargement asynchrone (spinners, barres de progression) pour ne pas bloquer l'interface. Les listes massives doivent être rendues par blocs (chunks) via `requestAnimationFrame`.
 
 ### Workflow Technique
 - **Version actuelle** : 0.4.0
-- **Validation** : `npx tsc --noEmit` obligatoire.
+- **Validation** : `npx tsc --noEmit` obligatoire. Garder le code exempt de variables/imports non utilisés.
 - **Développement** : `npm run dev` (Vite + CRXJS).
