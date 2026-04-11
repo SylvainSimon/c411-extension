@@ -1,3 +1,4 @@
+import { C411Swal as Swal } from '../../core/utils/sweetalert-theme';
 import { CheatAnalyzer } from './cheat-analyzer';
 import { C411ApiClient } from '../../core/api/c411-client';
 import { AnalysisResult } from '../../types/cheat-detection';
@@ -184,7 +185,16 @@ function displaySuspiciousResult(analysis: AnalysisResult) {
   banButton?.addEventListener('click', async () => {
     const reason = (document.getElementById('c411-ban-reason') as HTMLInputElement).value;
 
-    if (!confirm(`⚠️ Confirmer le bannissement définitif ?\n\nMotif :\n${reason}`)) return;
+    const { isConfirmed } = await Swal.fire({
+      title: 'Confirmer le bannissement ?',
+      text: `Motif : ${reason}`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Oui, bannir !',
+      cancelButtonText: 'Annuler'
+    });
+
+    if (!isConfirmed) return;
 
     // Animation et état désactivé
     const originalContent = banButton.innerHTML;
@@ -201,16 +211,25 @@ function displaySuspiciousResult(analysis: AnalysisResult) {
         banButton.style.backgroundColor = 'rgba(34, 197, 94, 0.2)';
         banButton.style.color = 'rgb(34, 197, 94)';
 
-        // Délai avant actualisation pour laisser le temps de lire le succès
-        setTimeout(() => {
-          window.location.reload();
-        }, 1500);
+        await Swal.fire({
+          title: 'Banni !',
+          text: 'L\'utilisateur a été banni avec succès.',
+          icon: 'success',
+          timer: 1500,
+          showConfirmButton: false
+        });
+
+        window.location.reload();
       } else {
         throw new Error('Erreur API');
       }
     } catch (error) {
       console.error('[UserProfile] Erreur lors du ban:', error);
-      alert('❌ Erreur lors du bannissement. Vérifiez vos permissions.');
+      Swal.fire({
+        title: 'Erreur',
+        text: 'Erreur lors du bannissement. Vérifiez vos permissions.',
+        icon: 'error'
+      });
       banButton.innerHTML = originalContent;
       (banButton as HTMLButtonElement).disabled = false;
       banButton.style.opacity = '1';

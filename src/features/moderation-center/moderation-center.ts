@@ -1,3 +1,4 @@
+import { C411Swal as Swal } from '../../core/utils/sweetalert-theme';
 import floatingButtonTemplate from '../../templates/moderation-center/floating-button.twig?raw';
 import overlayTemplate from '../../templates/moderation-center/overlay.twig?raw';
 import detailsModalTemplate from '../../templates/moderation-center/details-modal.twig?raw';
@@ -155,7 +156,19 @@ export class ModerationCenter {
                 const userId = parseInt(banBtn.getAttribute('data-user-id') || '0');
                 const username = banBtn.getAttribute('data-username') || '';
                 const reason = banBtn.getAttribute('data-reason') || '';
-                if (!userId || !confirm(`⚠️ Bannir ${username} ?\n\nMotif :\n${reason}`)) return;
+                
+                if (!userId) return;
+
+                const { isConfirmed } = await Swal.fire({
+                    title: `Bannir ${username} ?`,
+                    text: `Motif : ${reason}`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Oui, bannir !',
+                    cancelButtonText: 'Annuler'
+                });
+
+                if (!isConfirmed) return;
                 banBtn.disabled = true; banBtn.innerHTML = '⏳...';
                 try {
                     const res = await C411ApiClient.banUser(userId, reason);
@@ -264,7 +277,17 @@ export class ModerationCenter {
 
     private async deleteCurrentSession() {
         if (!this.currentSessionId) return;
-        if (confirm('Supprimer cette analyse ?')) {
+        
+        const { isConfirmed } = await Swal.fire({
+            title: 'Supprimer cette analyse ?',
+            text: 'Cette action est irréversible.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Oui, supprimer',
+            cancelButtonText: 'Annuler'
+        });
+
+        if (isConfirmed) {
             await HistoryService.deleteSession(this.currentSessionId);
             this.currentSessionId = null;
             this.allSessionEntries = [];
@@ -274,7 +297,16 @@ export class ModerationCenter {
     }
 
     private async clearAllSessions() {
-        if (confirm('Tout supprimer ?')) {
+        const { isConfirmed } = await Swal.fire({
+            title: 'Tout supprimer ?',
+            text: 'Toutes les analyses sauvegardées seront effacées.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Oui, tout supprimer',
+            cancelButtonText: 'Annuler'
+        });
+
+        if (isConfirmed) {
             await HistoryService.clearAllSessions();
             this.currentSessionId = null;
             this.allSessionEntries = [];

@@ -63,7 +63,8 @@ Automatise la création de fiches de présentation pour les films lors de l'uplo
 
 ### Interface Utilisateur (UI)
 - **Isolation** : Toute UI complexe *doit* être encapsulée dans un `ShadowRoot`.
-- **Design** : Respecter la charte graphique de C411 (couleurs sombres, accents bleus/verts).
+- **Boîtes de dialogue** : Utiliser exclusivement **SweetAlert2** (`Swal.fire`) au lieu des fonctions natives `alert`, `confirm` ou `prompt`.
+- **Design** : Respecter la charte graphique de C411 (couleurs sombres, accents bleus/verts). Configurer `Swal` avec `background: '#1a1a1a'` et `color: '#fff'`.
 - **Réactivité** : Gérer le chargement asynchrone (spinners, skeleton screens) pour ne pas bloquer l'interface.
 
 ### Workflow Technique
