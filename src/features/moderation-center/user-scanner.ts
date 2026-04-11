@@ -23,7 +23,7 @@ export class UserScanner {
 
     async scanInterval(startDate: string, endDate: string, snatchMaxPages = 999, startPage = 1) {
         this.isCancelled = false;
-        this.processedCount = (startPage - 1) * 100; // Estimation base
+        this.processedCount = (startPage - 1) * 100;
         if (startPage === 1) ModerationCenter.getInstance().clearLiveSession();
 
         const localStart = new Date(`${startDate}T00:00:00`);
@@ -74,7 +74,6 @@ export class UserScanner {
             this.updateStatus('Scan en pause.');
         } else {
             this.updateStatus('Scan terminé.');
-            // ON NE NETTOIE QUE SI LE SCAN EST VRAIMENT FINI
             await HistoryService.clearScanState();
             setTimeout(() => this.showProgress(false), 3000);
         }
@@ -97,13 +96,13 @@ export class UserScanner {
         ModerationCenter.getInstance().addLiveEntry(user, analysis);
         const resultsTable = this.shadow.getElementById('c411-mod-results');
         if (!resultsTable) return;
-        if (resultsTable.children.length < 500) {
-            const rowHtml = this.prepareRowHtml(user, analysis);
+        
+        // En mode live, on injecte directement via le template
+        if (resultsTable.children.length < 1000) {
+            const html = this.prepareRowHtml(user, analysis);
             const temp = document.createElement('tbody');
-            temp.innerHTML = rowHtml;
-            const row = temp.firstElementChild as HTMLElement;
-            this.attachRowEvents(row, user, analysis);
-            resultsTable.appendChild(row);
+            temp.innerHTML = html;
+            Array.from(temp.children).forEach(child => resultsTable.appendChild(child));
         }
     }
 
@@ -114,7 +113,6 @@ export class UserScanner {
         
         if (st.some(t => t.isLateActivity)) {
             const lateTorrents = st.filter(t => t.isLateActivity);
-            // Sécurité : recalculer si la valeur est absente ou 0 alors que le flag est présent
             lateTorrents.forEach(t => {
                 if (!t.delayFromCreationDays && t.torrentCreatedAt) {
                     const tCreate = FormatUtils.parseDate(t.torrentCreatedAt).getTime();
@@ -125,7 +123,7 @@ export class UserScanner {
             const maxDays = Math.max(...lateTorrents.map(t => t.delayFromCreationDays || 0));
             flags.late = `${Math.round(maxDays)}j`;
         }
-        if (st.some(t => (t as any).userRank === 1)) flags.rank1 = '#1';
+        if (st.some(t => t.userRank === 1)) flags.rank1 = '#1';
         if (st.some(t => t.isDominant)) {
             const maxDom = Math.max(...st.filter(t => t.isDominant).map(t => parseFloat(t.dominanceRatio || '0')));
             flags.dominant = `${FormatUtils.formatNumber(maxDom)}x`;
@@ -143,29 +141,12 @@ export class UserScanner {
         const banReason = BanUtils.generateBanReason(analysis);
 
         return TemplateEngine.render(userRowTemplate, { 
-            user, 
-            flags, 
+            user, flags, 
             createdAtFormatted: FormatUtils.formatDate(user.createdAt), 
-            totalSnatches: analysis.totalDownloads || 0, 
             suspicionScore: analysis.suspicionScore, 
             suspicionLevel: analysis.suspicionLevel, 
-            suspicionMessage: analysis.suspicionMessage,
-            banReason,
-            analysis // On passe tout l'objet pour l'accordéon
+            banReason, analysis
         });
-    }
-
-    public attachRowEvents(row: HTMLElement, user: UserListData, analysis: AnalysisResult) {
-        row.setAttribute('data-score', analysis.suspicionScore.toString());
-        const flags = [];
-        const st = analysis.suspiciousTorrents || [];
-        if (st.some(t => t.isLateActivity)) flags.push('late');
-        if (st.some(t => (t as any).userRank === 1)) flags.push('rank1');
-        if (st.some(t => t.isDominant)) flags.push('dominant');
-        if (st.some(t => t.uploadSpeedMbps > 1000)) flags.push('fast');
-        if (st.some(t => t.actualRatio > 50)) flags.push('ratio');
-        if ((analysis.globalWarnings || []).some(w => w.includes('identiques'))) flags.push('identical');
-        row.setAttribute('data-flags', flags.join(','));
     }
 
     private updateProgressBar() {

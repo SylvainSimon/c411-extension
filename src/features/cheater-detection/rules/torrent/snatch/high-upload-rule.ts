@@ -5,10 +5,13 @@ CheatRuleRegistry.register({
   id: 'high-upload',
   name: 'Upload élevé',
   type: 'torrent',
-  check({ stats, thresholds }) {
-    if (stats && thresholds.minUploadedTB && stats.uploadedTB >= thresholds.minUploadedTB) {
-      const formatted = FormatUtils.formatNumber(stats.uploadedTB);
-      return `Upload élevé (${formatted} TB)`;
+  check({ snatch, thresholds }) {
+    if (snatch && thresholds.minUploadedTB) {
+      const uploadedTB = snatch.actualUploaded / (1024 * 1024 * 1024 * 1024);
+      if (uploadedTB >= thresholds.minUploadedTB) {
+        const formatted = FormatUtils.formatNumber(uploadedTB);
+        return `Upload élevé (${formatted} TB)`;
+      }
     }
     return null;
   }

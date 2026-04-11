@@ -5,105 +5,16 @@ import { AnalysisResult } from '../../types/cheat-detection';
 import { TemplateEngine } from '../../core/utils/template-engine';
 import { FormatUtils } from '../../core/utils/format-utils';
 import { UrlParser } from '../../core/utils/url-parser';
+import { BanUtils } from '../../core/utils/ban-utils';
 
 // Importation du template global (Vite ?raw)
 import resultCardTemplate from '../../templates/cheater-detection/result-card.twig?raw';
-
-function formatSpeed(mbps: number): string {
-  const MOps = mbps / 8;
-  if (mbps >= 1000) {
-    const Gbps = mbps / 1000;
-    const GOps = MOps / 1000;
-    return `${FormatUtils.formatNumber(parseFloat(Gbps.toFixed(1)))} Gb/s (${FormatUtils.formatNumber(parseFloat(GOps.toFixed(2)))} Go/s)`;
-  } else {
-    return `${FormatUtils.formatNumber(Math.round(mbps))} Mb/s (${FormatUtils.formatNumber(parseFloat(MOps.toFixed(1)))} Mo/s)`;
-  }
-}
-
-function formatSpeedBytesOnly(mbps: number): string {
-  const MOps = mbps / 8;
-  return mbps >= 1000 ? `${FormatUtils.formatNumber(parseFloat((MOps / 1000).toFixed(2)))} Go/s` : `${FormatUtils.formatNumber(parseFloat(MOps.toFixed(1)))} Mo/s`;
-}
-
-/**
- * Génère le motif de ban complet et détaillé en synthétisant toutes les preuves
- */
-function generateDetailedBanReason(analysis: AnalysisResult): string {
-  const suspectCount = analysis.suspiciousTorrents.length;
-  const allReasons = new Set<string>();
-  analysis.suspiciousTorrents.forEach(t => t.suspicionReasons?.forEach(r => allReasons.add(r)));
-
-  const reasonsArray = Array.from(allReasons);
-  let synthesized: string[] = [];
-  const many = suspectCount > 1;
-  const prefix = many ? 'jusqu\'à ' : '';
-
-  // 1. Upload Synchronisé (Priorité haute, au niveau du compte)
-  const isSynchro = reasonsArray.some(r => r.includes('synchronisé')) || analysis.globalWarnings.some(w => w.includes('synchronisé'));
-  
-  if (isSynchro) {
-    const synchroWarning = analysis.globalWarnings.find(w => w.includes('synchronisé'));
-    if (synchroWarning) {
-      const details = synchroWarning.split('détecté :')[1] || synchroWarning;
-      synthesized.push(`upload synchronisé (${details.trim()})`);
-    }
-  }
-
-  // 2. Synthèse des Ratios
-  if (reasonsArray.some(r => r.includes('Ratio élevé'))) {
-    const maxRatio = Math.max(...analysis.suspiciousTorrents.map(t => t.actualRatio));
-    synthesized.push(`ratio ${prefix}${FormatUtils.formatNumber(maxRatio)}`);
-  }
-
-  // 3. Synthèse de l'Upload
-  if (reasonsArray.some(r => r.includes('Upload élevé'))) {
-    const maxUpload = Math.max(...analysis.suspiciousTorrents.map(t => t.uploadedTB));
-    synthesized.push(`upload ${prefix}${FormatUtils.formatNumber(maxUpload)} TB`);
-  }
-
-  // 4. Synthèse des Débits
-  if (reasonsArray.some(r => r.includes('Débit suspect'))) {
-    const maxSpeed = Math.max(...analysis.suspiciousTorrents.map(t => t.uploadSpeedMbps));
-    synthesized.push(`débit ${prefix}${formatSpeedBytesOnly(maxSpeed)}`);
-  }
-
-  // 5. Activité tardive
-  if (reasonsArray.some(r => r.includes('Activité tardive'))) {
-    const lateTorrents = analysis.suspiciousTorrents.filter(t => t.isLateActivity);
-    const maxDays = Math.max(...lateTorrents.map(t => t.delayFromCreationDays || 0));
-    if (maxDays > 0) {
-      synthesized.push(`activité tardive (${prefix}${Math.round(maxDays)}j après publication)`);
-    }
-  }
-
-  // 6. Domination
-  if (reasonsArray.some(r => r.includes('Domination'))) {
-    const dominantTorrents = analysis.suspiciousTorrents.filter(t => t.isDominant);
-    const maxDominance = Math.max(...dominantTorrents.map(t => parseFloat(t.dominanceRatio || '0')));
-    if (maxDominance > 0) {
-      synthesized.push(`domination suspecte (${prefix}${FormatUtils.formatNumber(maxDominance)}x plus que le 2ème)`);
-    }
-  }
-
-  // 7. Ratio Impossible
-  if (reasonsArray.some(r => r.includes('Ratio impossible'))) {
-    const impossibleTorrents = analysis.suspiciousTorrents.filter(t => t.isImpossibleRatio);
-    const worst = impossibleTorrents.reduce((a, b) => (a.actualRatio > b.actualRatio) ? a : b);
-    if (worst && worst.torrentCompletions) {
-      synthesized.push(`ratio impossible (${FormatUtils.formatNumber(worst.actualRatio)} pour ${FormatUtils.formatNumber(worst.torrentCompletions)} complétions)`);
-    }
-  }
-
-  return `Triche détectée sur ${suspectCount} torrent${many ? 's' : ''} : ${synthesized.join(', ')}.`;
-}
 
 function smartFormatDate(dateStr: string, referenceDateStr?: string): string {
   const date = FormatUtils.parseDate(dateStr);
   const timeStr = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   
-  if (!referenceDateStr) {
-    return date.toLocaleString('fr-FR');
-  }
+  if (!referenceDateStr) return date.toLocaleString('fr-FR');
 
   const refDate = FormatUtils.parseDate(referenceDateStr);
   const isSameDay = date.toLocaleDateString() === refDate.toLocaleDateString();
@@ -127,7 +38,7 @@ function displaySuspiciousResult(analysis: AnalysisResult) {
 
   const colors = levelColors[analysis.suspicionLevel] || levelColors.medium;
   
-  const topSuspects = analysis.suspiciousTorrents.slice(0, 5).map(torrent => {
+  const topSuspects = analysis.suspiciousTorrents.slice(0, 10).map(torrent => {
     let downloadTimeSeconds = 0;
     if (torrent.completedAt) {
       downloadTimeSeconds = (FormatUtils.parseDate(torrent.completedAt).getTime() - FormatUtils.parseDate(torrent.firstAction).getTime()) / 1000;
@@ -141,7 +52,6 @@ function displaySuspiciousResult(analysis: AnalysisResult) {
       formattedDownloaded: FormatUtils.formatBytes(torrent.actualDownloaded),
       formattedUploaded: FormatUtils.formatBytes(torrent.actualUploaded),
       
-      // Chronologie intelligente
       mainDate: FormatUtils.parseDate(torrent.firstAction).toLocaleDateString('fr-FR'),
       formattedFirstAction: smartFormatDate(torrent.firstAction),
       formattedLastAction: smartFormatDate(torrent.lastAction, refDate),
@@ -151,8 +61,7 @@ function displaySuspiciousResult(analysis: AnalysisResult) {
       formattedDelay: torrent.delayFromCreationDays ? (torrent.delayFromCreationDays >= 1 ? `+${Math.round(torrent.delayFromCreationDays)}j` : `+${Math.round(torrent.delayFromCreationDays * 24)}h`) : null,
       formattedDownloadTime: FormatUtils.formatDuration(downloadTimeSeconds),
       formattedSeedingTime: FormatUtils.formatDuration(torrent.seedingTimeSeconds),
-      formattedActiveTime: FormatUtils.formatDuration(torrent.totalActiveTime),
-      formattedUploadSpeed: formatSpeed(torrent.uploadSpeedMbps),
+      formattedUploadSpeed: FormatUtils.formatSpeed(torrent.uploadSpeedMbps),
       formattedCompletions: torrent.torrentCompletions !== undefined ? FormatUtils.formatNumber(torrent.torrentCompletions) : null,
       formattedSecondUpload: torrent.secondUpload ? FormatUtils.formatBytes(torrent.secondUpload) : null,
       actualRatioFormatted: FormatUtils.formatNumber(parseFloat(torrent.actualRatioFormatted)),
@@ -167,7 +76,7 @@ function displaySuspiciousResult(analysis: AnalysisResult) {
     topSuspects,
     totalDownloadsFormatted: FormatUtils.formatNumber(analysis.totalDownloads),
     suspectCountFormatted: FormatUtils.formatNumber(analysis.suspiciousTorrents.length),
-    banReason: generateDetailedBanReason(analysis)
+    banReason: BanUtils.generateBanReason(analysis)
   };
 
   const resultHtml = TemplateEngine.render(resultCardTemplate, templateData);
@@ -196,44 +105,23 @@ function displaySuspiciousResult(analysis: AnalysisResult) {
 
     if (!isConfirmed) return;
 
-    // Animation et état désactivé
     const originalContent = banButton.innerHTML;
     banButton.innerHTML = '<span>⏳</span> Bannissement...';
     (banButton as HTMLButtonElement).disabled = true;
-    banButton.style.opacity = '0.7';
-    banButton.style.cursor = 'not-allowed';
 
     try {
       const res = await C411ApiClient.banUser(analysis.userId, reason);
-
       if (res) {
         banButton.innerHTML = '<span>✅</span> Utilisateur banni !';
-        banButton.style.backgroundColor = 'rgba(34, 197, 94, 0.2)';
-        banButton.style.color = 'rgb(34, 197, 94)';
-
-        await Swal.fire({
-          title: 'Banni !',
-          text: 'L\'utilisateur a été banni avec succès.',
-          icon: 'success',
-          timer: 1500,
-          showConfirmButton: false
-        });
-
+        await Swal.fire({ title: 'Banni !', text: 'Succès.', icon: 'success', timer: 1500, showConfirmButton: false });
         window.location.reload();
       } else {
         throw new Error('Erreur API');
       }
     } catch (error) {
-      console.error('[UserProfile] Erreur lors du ban:', error);
-      Swal.fire({
-        title: 'Erreur',
-        text: 'Erreur lors du bannissement. Vérifiez vos permissions.',
-        icon: 'error'
-      });
+      Swal.fire({ title: 'Erreur', text: 'Permissions insuffisantes.', icon: 'error' });
       banButton.innerHTML = originalContent;
       (banButton as HTMLButtonElement).disabled = false;
-      banButton.style.opacity = '1';
-      banButton.style.cursor = 'pointer';
     }
   });
 }
@@ -253,7 +141,6 @@ async function analyzeSuspiciousDownloads(userId: number) {
   btn.addEventListener('click', async () => {
     btn.innerHTML = `<span>⏳</span><span>Analyse en cours...</span>`;
     btn.disabled = true;
-    
     document.getElementById('c411-suspicious-result')?.remove();
     
     const analysis = await CheatAnalyzer.analyze(userId);
@@ -270,16 +157,12 @@ async function analyzeSuspiciousDownloads(userId: number) {
 
 async function displayUserId() {
   if (!UrlParser.isUserProfilePage()) return;
-
   const username = UrlParser.getUsernameFromUrl();
   if (!username) return;
 
   try {
     const profile = await C411ApiClient.getUserProfile(username);
     if (!profile) return;
-
-    const userId = profile.id;
-    (window as any).__c411_captured_user_id = userId;
 
     const h1 = document.querySelector('h1.text-2xl.font-bold') || document.querySelector('h1');
     if (!h1 || document.getElementById('c411-user-id-badge')) return;
@@ -288,13 +171,11 @@ async function displayUserId() {
     idBadge.id = 'c411-user-id-badge';
     idBadge.className = 'inline-flex items-center font-semibold rounded-full border px-2.5 py-1 text-sm gap-1.5 ml-2';
     idBadge.style.cssText = 'background-color: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.3); color: rgb(59, 130, 246);';
-    idBadge.innerHTML = `<span>🆔</span><span>ID: ${userId}</span>`;
+    idBadge.innerHTML = `<span>🆔</span><span>ID: ${profile.id}</span>`;
     
     h1.parentElement?.appendChild(idBadge);
-    analyzeSuspiciousDownloads(userId);
-  } catch (error) {
-    console.error('[UserProfile] Erreur récupération ID via API:', error);
-  }
+    analyzeSuspiciousDownloads(profile.id);
+  } catch (error) {}
 }
 
 export function initializeUserProfile() {

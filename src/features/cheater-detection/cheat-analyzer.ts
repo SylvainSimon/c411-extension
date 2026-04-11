@@ -1,6 +1,7 @@
 import { C411ApiClient } from '../../core/api/c411-client';
 import { SnatchData } from '../../types/api';
 import { Config } from '../../core/config/config';
+import { AppConfig } from '../../types/config';
 import { CheatRuleRegistry } from './cheat-rule-registry';
 import { FormatUtils } from '../../core/utils/format-utils';
 import { SnatchStats, SuspiciousTorrent, AnalysisResult, RuleContext } from '../../types/cheat-detection';
@@ -72,27 +73,42 @@ export const CheatAnalyzer = {
   _calculateSnatchStats(snatch: SnatchData): SnatchStats {
     const ratioBySize = CheatStats.calculateRatioBySize(snatch.actualUploaded, snatch.size);
     const multiples = CheatStats.analyzeMultiples(snatch.actualDownloaded, snatch.size);
-    const firstAction = FormatUtils.parseDate(snatch.firstAction).getTime();
-    const lastAction = FormatUtils.parseDate(snatch.lastAction).getTime();
     const seedingTimeSeconds = snatch.seedingTime || 0;
-    const elapsedSeconds = (lastAction - firstAction) / 1000;
-
-    let uploadSpeedMbps = 0;
+    
+    // 1. Calcul de la fenêtre de téléchargement (Leech)
+    let leechTimeSeconds = 0;
     if (snatch.completedAt) {
-      const downloadTimeSeconds = (FormatUtils.parseDate(snatch.completedAt).getTime() - firstAction) / 1000;
-      uploadSpeedMbps = CheatStats.calculateSpeedMbps(snatch.actualUploaded, downloadTimeSeconds + seedingTimeSeconds);
-    } else {
-      uploadSpeedMbps = CheatStats.calculateSpeedMbps(snatch.actualUploaded, seedingTimeSeconds || elapsedSeconds);
+        const tFirst = FormatUtils.parseDate(snatch.firstAction).getTime();
+        const tDone = FormatUtils.parseDate(snatch.completedAt).getTime();
+        leechTimeSeconds = Math.max(0, (tDone - tFirst) / 1000);
     }
+
+    // 2. Temps actif total estimé (Leech + Seed)
+    // On considère que l'utilisateur peut uploader dès la première seconde du download
+    let effectiveTime = leechTimeSeconds + seedingTimeSeconds;
+
+    // 3. Garde-fou (Fenêtre globale)
+    // Si l'utilisateur est un cross-seeder (pas de completedAt) ou si les données sont
+    // incohérentes, on vérifie par rapport à la fenêtre temporelle réelle du tracker.
+    const tFirst = FormatUtils.parseDate(snatch.firstAction).getTime();
+    const tLast = FormatUtils.parseDate(snatch.lastAction).getTime();
+    const elapsedSeconds = Math.max(1, (tLast - tFirst) / 1000);
+
+    // Si le temps calculé est ridiculement bas (< 5% du temps passé sur le site)
+    // alors qu'il y a un upload significatif (> 10 Mo), on utilise la fenêtre globale.
+    if (snatch.actualUploaded > 1024 * 1024 * 10 && effectiveTime < (elapsedSeconds * 0.05)) {
+        effectiveTime = elapsedSeconds;
+    }
+
+    effectiveTime = Math.max(effectiveTime, 1);
+    const uploadSpeedMbps = CheatStats.calculateSpeedMbps(snatch.actualUploaded, effectiveTime);
 
     return {
       ratioBySize, ratioBySizeFormatted: ratioBySize.toFixed(2),
-      uploadedTB: snatch.actualUploaded / CheatStats.ONE_TB,
-      uploadSpeedMbps, totalActiveTime: seedingTimeSeconds,
+      uploadSpeedMbps, 
       seedingTimeSeconds, isCrossSeed: !snatch.completedAt,
       downloadRatio: multiples.ratio, downloadRatioFormatted: multiples.ratio.toFixed(2),
       isMultipleDownload: multiples.isMultiple, multipleCount: multiples.count,
-      downloadExceedsTorrentSize: multiples.ratio > 1.05 && !multiples.isMultiple,
       actualRatio: ratioBySize, actualRatioFormatted: ratioBySize.toFixed(2)
     };
   },

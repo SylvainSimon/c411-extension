@@ -4,16 +4,13 @@ import { AppConfig } from './config';
 export interface SnatchStats {
   ratioBySize: number;
   ratioBySizeFormatted: string;
-  uploadedTB: number;
   uploadSpeedMbps: number;
-  totalActiveTime: number;
   seedingTimeSeconds: number;
   isCrossSeed: boolean;
   downloadRatio: number;
   downloadRatioFormatted: string;
   isMultipleDownload: boolean;
   multipleCount: number;
-  downloadExceedsTorrentSize: boolean;
   actualRatio: number;
   actualRatioFormatted: string;
 }

@@ -1,14 +1,11 @@
 import { C411Swal as Swal } from '../../core/utils/sweetalert-theme';
 import floatingButtonTemplate from '../../templates/moderation-center/floating-button.twig?raw';
 import overlayTemplate from '../../templates/moderation-center/overlay.twig?raw';
-import detailsModalTemplate from '../../templates/moderation-center/details-modal.twig?raw';
 import { TemplateEngine } from '../../core/utils/template-engine';
 import { UserScanner } from './user-scanner';
 import { AnalysisResult } from '../../types/cheat-detection';
-import { FormatUtils } from '../../core/utils/format-utils';
 import { C411ApiClient } from '../../core/api/c411-client';
 import { HistoryService, HistoryEntry } from './history-service';
-import { BanUtils } from '../../core/utils/ban-utils';
 
 // Tools
 import { RegistrationTool } from './tools/registration-tool';
@@ -190,14 +187,6 @@ export class ModerationCenter {
                     }
                 } catch { banBtn.disabled = false; banBtn.innerHTML = '🚫'; }
             }
-
-            if (refreshBtn) {
-                const row = refreshBtn.closest('.c411-mod-user-row') as HTMLElement;
-                const userId = parseInt(row.getAttribute('data-user-id') || '0');
-                const username = row.querySelector('.username')?.textContent || '';
-                refreshBtn.innerHTML = '⏳';
-                await this.refreshUserStatus(userId, username);
-            }
         });
     }
 
@@ -268,7 +257,7 @@ export class ModerationCenter {
         const flags = [];
         const st = analysis.suspiciousTorrents || [];
         if (st.some(t => t.isLateActivity)) flags.push('late');
-        if (st.some(t => (t as any).userRank === 1)) flags.push('rank1');
+        if (st.some(t => t.userRank === 1)) flags.push('rank1');
         if (st.some(t => t.isDominant)) flags.push('dominant');
         if (st.some(t => t.uploadSpeedMbps > 1000)) flags.push('fast');
         if (st.some(t => t.actualRatio > 50)) flags.push('ratio');
@@ -321,12 +310,7 @@ export class ModerationCenter {
         (this.shadow.getElementById('c411-quick-scan') as HTMLInputElement).checked = session.quickScan;
 
         this.allSessionEntries = session.entries;
-        const resultsTable = this.shadow.getElementById('c411-mod-results')!;
-        resultsTable.innerHTML = '';
-        this.shadow.getElementById('c411-mod-empty')!.style.display = 'none';
-        const tempScanner = new UserScanner(this.shadow);
-        const sortedEntries = [...session.entries].sort((a,b) => a.timestamp - b.timestamp);
-        this.renderEntriesInChunks(sortedEntries, tempScanner);
+        this.applyAllFilters();
         this.switchTab('scan');
     }
 
@@ -385,26 +369,6 @@ export class ModerationCenter {
         this.shadow.getElementById('c411-stat-critical')!.textContent = filtered.filter(e => e.analysis.suspicionScore >= 120).length.toString();
     }
 
-    public showDetails(analysis: AnalysisResult, username: string) {
-        if (!this.shadow) return;
-        this.shadow.getElementById('c411-details-modal')?.parentElement?.remove();
-        const modalContainer = document.createElement('div');
-        const banReason = BanUtils.generateBanReason(analysis);
-        const html = TemplateEngine.render(detailsModalTemplate, {
-            analysis, username, banReason,
-            totalUploadedFormatted: FormatUtils.formatBytes(analysis.totalUploaded),
-            totalDownloadedFormatted: FormatUtils.formatBytes(analysis.totalDownloaded),
-            suspiciousTorrents: (analysis.suspiciousTorrents || []).map(t => ({
-                ...t, uploadedFormatted: FormatUtils.formatBytes(t.actualUploaded),
-                uploadSpeedFormatted: FormatUtils.formatSpeed(t.uploadSpeedMbps)
-            }))
-        });
-        modalContainer.innerHTML = html;
-        this.shadow.appendChild(modalContainer);
-        modalContainer.querySelector('#c411-close-details')?.addEventListener('click', () => modalContainer.remove());
-        modalContainer.querySelector('.c411-modal-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) modalContainer.remove(); });
-    }
-
     private async resumeScan() {
         const state = await HistoryService.getScanState();
         if (!state || !this.shadow) return;
@@ -413,11 +377,7 @@ export class ModerationCenter {
         if (session) { 
             this.allSessionEntries = session.entries;
             this.shadow.getElementById('c411-current-title')!.textContent = session.name; 
-            const resultsTable = this.shadow.getElementById('c411-mod-results')!;
-            resultsTable.innerHTML = '';
-            const tempScanner = new UserScanner(this.shadow);
-            const sortedEntries = [...session.entries].sort((a,b) => a.timestamp - b.timestamp);
-            this.renderEntriesInChunks(sortedEntries, tempScanner);
+            this.applyAllFilters();
         }
         const toolId = state.sessionId.startsWith('reg_') ? 'registration' : 'leaderboard';
         (this.shadow.getElementById('c411-current-tool') as HTMLSelectElement).value = toolId;
@@ -444,16 +404,12 @@ export class ModerationCenter {
             const profile = await C411ApiClient.getUserProfile(username);
             if (profile && profile.trackerBanned) {
                 this.removeUserFromList(userId);
-            } else {
-                const row = this.shadow!.querySelector(`[data-user-id="${userId}"]`) as HTMLElement;
-                const btn = row?.querySelector('.refresh-user');
-                if (btn) btn.innerHTML = '🔄';
             }
         } catch {}
     }
 
     private async refreshAllUsers() {
-        const rows = Array.from(this.shadow!.querySelectorAll('.c411-mod-user-row')) as HTMLElement[];
+        const rows = Array.from(this.shadow!.querySelectorAll('.main-row')) as HTMLElement[];
         const status = this.shadow!.getElementById('c411-scan-status')!;
         const originalStatus = status.textContent;
         status.textContent = 'Nettoyage en cours...';
@@ -469,12 +425,13 @@ export class ModerationCenter {
 
     private removeUserFromList(userId: number) {
         this.allSessionEntries = this.allSessionEntries.filter(e => e.user.id !== userId);
-        const row = this.shadow!.querySelector(`[data-user-id="${userId}"]`) as HTMLElement;
+        const row = this.shadow!.querySelector(`.main-row[data-user-id="${userId}"]`) as HTMLElement;
+        const detail = this.shadow!.querySelector(`.detail-row[data-user-id="${userId}"]`) as HTMLElement;
         if (row) {
             row.style.opacity = '0';
             row.style.transform = 'translateX(20px)';
             row.style.transition = 'all 0.3s';
-            setTimeout(() => row.remove(), 300);
+            setTimeout(() => { row.remove(); detail?.remove(); }, 300);
         }
         this.updateGlobalStats();
         if (this.currentSessionId) {
@@ -498,9 +455,7 @@ export class ModerationCenter {
                 const html = scanner.prepareRowHtml(entry.user, entry.analysis);
                 const temp = document.createElement('tbody');
                 temp.innerHTML = html;
-                const row = temp.firstElementChild as HTMLElement;
-                scanner.attachRowEvents(row, entry.user, entry.analysis);
-                fragment.appendChild(row);
+                Array.from(temp.children).forEach(child => fragment.appendChild(child));
             });
             resultsTable.appendChild(fragment);
             index += CHUNK_SIZE;
