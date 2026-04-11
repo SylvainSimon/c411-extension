@@ -152,9 +152,8 @@ export class ModerationCenter {
             const target = e.target as HTMLElement;
             const mainRow = target.closest('.main-row') as HTMLElement;
             const banBtn = target.closest('.ban-user') as HTMLButtonElement;
-            const refreshBtn = target.closest('.refresh-user') as HTMLButtonElement;
 
-            if (mainRow && !banBtn && !refreshBtn && !target.closest('a')) {
+            if (mainRow && !banBtn && !target.closest('a')) {
                 const userId = mainRow.getAttribute('data-user-id');
                 const detailRow = this.shadow!.querySelector(`.detail-row[data-user-id="${userId}"]`) as HTMLElement;
                 if (detailRow) {
