@@ -36,11 +36,11 @@
                     <button class="c411-mod-btn-small danger ban-user" 
                             data-user-id="{{ analysis.userId }}" 
                             data-username="{{ username }}"
-                            data-reason="{{ analysis.suspicionMessage }} - {{ analysis.totalDownloads }} snatches analysés.">
+                            data-reason="{{ banReason }}">
                         🚫 Bannir cet utilisateur
                     </button>
                 </div>
-                <div class="suggestion-box">{{ analysis.suspicionMessage }} - {{ analysis.totalDownloads }} snatches analysés.</div>
+                <div class="suggestion-box">{{ banReason }}</div>
             </div>
 
             {% if analysis.globalWarnings.length > 0 %}

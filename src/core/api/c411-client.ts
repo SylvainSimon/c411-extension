@@ -1,4 +1,4 @@
-import { SnatchData, UserSnatchResponse, TorrentMetadata, TorrentStats, Snatcher, UserProfileData, LeaderboardResponse, RanksResponse, UserListResponse, UserListData } from '../../types/api';
+import { SnatchData, UserSnatchResponse, TorrentMetadata, TorrentStats, Snatcher, UserProfileData, LeaderboardResponse, RanksResponse, UserListResponse } from '../../types/api';
 
 export const C411ApiClient = {
   // ...

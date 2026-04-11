@@ -6,54 +6,67 @@ Ce document définit les standards techniques et fonctionnels pour le développe
 
 ## 🎯 Description Fonctionnelle
 
-C411 Tools est une extension Chrome conçue pour les modérateurs et uploadeurs du site C411.org (une plateforme de partage Nuxt). Elle propose deux fonctionnalités majeures :
+C411 Tools est une extension Chrome conçue pour les modérateurs et uploadeurs du site C411.org (une plateforme de partage Nuxt). Elle propose trois fonctionnalités majeures :
 
-### 1. Détection de Tricheurs (Cheater Detection)
-L'outil analyse l'historique de téléchargement (snatches) d'un utilisateur pour détecter des anomalies statistiques suggérant une triche (ex: seedbox survitaminée ou modification de client).
-- **Déclenchement** : Un bouton "Analyser tricheur" est injecté sur les pages de profil (`/user/ID` ou `/users/ID`).
-- **Analyse en deux passes** :
-    1. **Passe Rapide** : Récupère l'intégralité de l'historique via `/api/users/{id}/snatch-history`. Calcule les ratios et débits pour chaque torrent.
-    2. **Analyse Profonde** : Pour les 5 torrents les plus suspects, interroge les métadonnées (`/api/torrents/{hash}`) et le classement (`/api/torrents/{hash}/snatchers`) pour confirmer la triche.
-- **Règles Heuristiques** :
-    - **Ratio élevé** : Ratio d'upload > seuil (défaut: 25).
-    - **Débit suspect** : Vitesse d'envoi moyenne > 1 Gbps (125 Mo/s).
-    - **Activité tardive** : Téléchargement débuté plus de 24h après la sortie alors qu'un ratio énorme est atteint (peu probable sans triche).
-    - **Domination** : L'utilisateur a envoyé X fois plus que le second meilleur uploader sur le même torrent.
-    - **Ratio impossible** : L'utilisateur a un ratio supérieur au nombre total de complétions du torrent (mathématiquement impossible sans triche).
-- **Action** : Synthétise les preuves dans un motif de ban suggéré et propose un bouton pour bannir l'utilisateur via `/api/team-pending/users/{id}/ban`.
+### 1. Centre de Modération (Moderation Center) - **NOUVEAU v0.4**
+Un hub centralisé pour la surveillance proactive du site.
+- **Interface** : Un bouton flottant injecté sur toutes les pages ouvre un overlay en **Shadow DOM**.
+- **Outils intégrés** :
+    - **Registration Tool** : Permet de scanner massivement les nouveaux inscrits sur une période donnée (ex: aujourd'hui, hier, semaine dernière).
+    - **Leaderboard Tool** : Analyse les utilisateurs par rang (ex: Power User, Elite) ou via le classement général pour détecter les tricheurs "historiques".
+- **Fonctionnalités** :
+    - Scan multi-utilisateurs avec barre de progression.
+    - Historique des sessions de scan stocké localement.
+    - Filtrage en temps réel par "Pattern de suspicion" (Flags).
+    - Exportation/Synthèse des preuves pour le ban.
 
-### 2. Générateur de BBCode (BBCode Generator)
+### 2. Détection de Tricheurs (Cheater Detection)
+L'outil analyse l'historique de téléchargement (snatches) d'un utilisateur pour détecter des anomalies statistiques.
+- **Architecture Modulaire** : Les règles sont enregistrées via `CheatRuleRegistry`.
+- **Types de Règles** :
+    - **Règles de Compte (`account`)** : Analyse globale du profil (ex: `IdenticalUploadRule`).
+    - **Règles de Torrent (`torrent`)** :
+        - **Pass Rapide (`snatch`)** : Analyse les métadonnées de base de l'historique (ex: `HighRatioRule`, `SuspiciousSpeedRule`).
+        - **Analyse Profonde (`deep`)** : Requiert des appels API supplémentaires sur le torrent pour confirmer la triche (ex: `DominanceRule`, `LateActivityRule`, `ImpossibleRatioRule`).
+- **Scoring** : Chaque règle génère un score de suspicion. Un utilisateur est marqué comme "suspect" si son score total dépasse les seuils configurés.
+
+### 3. Générateur de BBCode (BBCode Generator)
 Automatise la création de fiches de présentation pour les films lors de l'upload.
-- **Déclenchement** : Un bouton "🎬 Générer BBCode" est injecté sur la page `/upload` à côté du champ "Nom de release".
+- **Déclenchement** : Un bouton "🎬 Générer BBCode" est injecté sur la page `/upload`.
 - **Flux** : 
-    1. Extrait le titre et l'année du nom du torrent (ex: `Film.Name.2024...`).
-    2. Recherche sur **TMDB** via son API.
-    3. Si plusieurs résultats, affiche un sélecteur graphique pour que l'utilisateur choisisse le bon film.
-    4. Récupère les détails (casting, réalisateur, pays, affiche, note).
-    5. Formate le tout via un template Twig (`presentation.twig`) et le copie dans le presse-papier.
+    1. Extraction intelligente du titre/année.
+    2. Recherche **TMDB** avec sélecteur graphique si ambiguïté.
+    3. Formatage via template Twig (`presentation.twig`) et copie dans le presse-papier.
 
 ---
 
-## 🏗 Architecture MVC & Responsabilités
+## 🏗 Architecture & Responsabilités
 
-- **Modèles (`src/types/`)** : Interfaces TypeScript strictes. Aucune définition locale autorisée.
-- **Vues (`src/templates/`)** : Fichiers `.twig`. Séparés du code TS. Importés via `?raw`.
-- **Contrôleurs (`src/features/`)** : Logique métier et manipulation du DOM (via `MutationObserver` pour gérer le SPA Nuxt).
-- **Coeur (`src/core/`)** : Clients API (`C411ApiClient`, `TmdbApiClient`), Config et Utilitaires de formatage.
+- **Core (`src/core/`)** :
+    - `api/` : Clients typés pour C411 et TMDB.
+    - `utils/` : `FormatUtils` (dates/nombres), `TemplateEngine` (Twig), `BanUtils`.
+- **Features (`src/features/`)** :
+    - Logique métier découpée par domaine.
+    - Utilisation intensive de `Shadow DOM` pour les overlays afin d'éviter les conflits CSS avec Nuxt.
+    - `MutationObserver` pour l'injection dynamique dans le SPA.
+- **Templates (`src/templates/`)** : Fichiers `.twig` importés via le plugin Vite `?raw`.
+- **Types (`src/types/`)** : Définitions TypeScript strictes partagées.
 
 ---
 
 ## 📏 Standards & Conventions
 
 ### Normalisation des Données
-- **Dates** : Toujours utiliser `FormatUtils.parseDate()` (force l'interprétation UTC pour corriger les décalages de l'API).
-- **Nombres** : `FormatUtils.formatNumber()` (Notation française : espaces insécables, arrondi à l'entier au-delà de 1000).
-- **Durées** : `FormatUtils.formatDuration()` (Padding des zéros obligatoire : `2h05` et non `2h5`).
+- **Dates** : Toujours utiliser `FormatUtils.parseDate()` (force l'interprétation UTC).
+- **Nombres** : `FormatUtils.formatNumber()` (Notation française : espaces insécables).
+- **Durées** : `FormatUtils.formatDuration()` (Padding des zéros : `2h05`).
 
-### Sécurité & Confidentialité
-- **Identité Git** : `Grindelwald <grindelwald-himself@proton.me>`.
-- **Secrets** : Pas de clé API versionnée. Stockage via `chrome.storage.sync`.
+### Interface Utilisateur (UI)
+- **Isolation** : Toute UI complexe *doit* être encapsulée dans un `ShadowRoot`.
+- **Design** : Respecter la charte graphique de C411 (couleurs sombres, accents bleus/verts).
+- **Réactivité** : Gérer le chargement asynchrone (spinners, skeleton screens) pour ne pas bloquer l'interface.
 
-### Workflow
-- `npm run dev` pour le développement (Vite + HMR).
-- `npx tsc --noEmit` pour valider les types avant chaque commit.
+### Workflow Technique
+- **Version actuelle** : 0.4.0
+- **Validation** : `npx tsc --noEmit` obligatoire.
+- **Développement** : `npm run dev` (Vite + CRXJS).

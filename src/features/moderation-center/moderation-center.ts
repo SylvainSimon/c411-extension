@@ -6,7 +6,8 @@ import { UserScanner } from './user-scanner';
 import { AnalysisResult } from '../../types/cheat-detection';
 import { FormatUtils } from '../../core/utils/format-utils';
 import { C411ApiClient } from '../../core/api/c411-client';
-import { HistoryService, ScanSession, HistoryEntry } from './history-service';
+import { HistoryService, HistoryEntry } from './history-service';
+import { BanUtils } from '../../core/utils/ban-utils';
 
 // Tools
 import { RegistrationTool } from './tools/registration-tool';
@@ -109,15 +110,12 @@ export class ModerationCenter {
         const state = await HistoryService.getScanState();
         const resumeBtn = this.shadow.getElementById('c411-resume-scan');
         const resumeName = this.shadow.getElementById('resume-scan-name');
-        
         if (state && resumeBtn && resumeName) {
             const sessions = await HistoryService.getSessionsList();
             const session = sessions.find(s => s.id === state.sessionId);
             resumeName.textContent = session ? `${session.name} (page ${state.currentPage})` : `Page ${state.currentPage}`;
             resumeBtn.style.display = 'block';
-        } else if (resumeBtn) {
-            resumeBtn.style.display = 'none';
-        }
+        } else if (resumeBtn) resumeBtn.style.display = 'none';
     }
 
     private setupEventListeners() {
@@ -246,7 +244,6 @@ export class ModerationCenter {
         (this.shadow.getElementById('c411-current-tool') as HTMLSelectElement).value = toolId;
         await this.switchTool(toolId);
 
-        // RESTAURATION DES CHAMPS DU FORMULAIRE
         if (toolId === 'registration') {
             (this.shadow.getElementById('c411-scan-date-start') as HTMLInputElement).value = session.startDate;
             (this.shadow.getElementById('c411-scan-date-end') as HTMLInputElement).value = session.endDate;
@@ -283,6 +280,7 @@ export class ModerationCenter {
             this.allSessionEntries = [];
             this.shadow!.getElementById('c411-mod-results')!.innerHTML = '';
             await this.refreshSessionList();
+            await this.checkResumeState();
         }
     }
 
@@ -304,8 +302,9 @@ export class ModerationCenter {
         if (!this.shadow) return;
         this.shadow.getElementById('c411-details-modal')?.parentElement?.remove();
         const modalContainer = document.createElement('div');
+        const banReason = BanUtils.generateBanReason(analysis);
         const html = TemplateEngine.render(detailsModalTemplate, {
-            analysis, username,
+            analysis, username, banReason,
             totalUploadedFormatted: FormatUtils.formatBytes(analysis.totalUploaded),
             totalDownloadedFormatted: FormatUtils.formatBytes(analysis.totalDownloaded),
             suspiciousTorrents: (analysis.suspiciousTorrents || []).map(t => ({
@@ -322,10 +321,8 @@ export class ModerationCenter {
     private async resumeScan() {
         const state = await HistoryService.getScanState();
         if (!state || !this.shadow) return;
-        
         this.currentSessionId = state.sessionId;
         const session = await HistoryService.getSession(state.sessionId);
-        
         if (session) { 
             this.allSessionEntries = session.entries;
             this.shadow.getElementById('c411-current-title')!.textContent = session.name; 
@@ -335,12 +332,9 @@ export class ModerationCenter {
             const sortedEntries = [...session.entries].sort((a,b) => a.timestamp - b.timestamp);
             this.renderEntriesInChunks(sortedEntries, tempScanner);
         }
-
         const toolId = state.sessionId.startsWith('reg_') ? 'registration' : 'leaderboard';
         (this.shadow.getElementById('c411-current-tool') as HTMLSelectElement).value = toolId;
         await this.switchTool(toolId);
-
-        // RESTAURATION VISUELLE DES CHAMPS LORS DE LA REPRISE
         if (toolId === 'registration') {
             (this.shadow.getElementById('c411-scan-date-start') as HTMLInputElement).value = state.startDate;
             (this.shadow.getElementById('c411-scan-date-end') as HTMLInputElement).value = state.endDate;
@@ -348,12 +342,9 @@ export class ModerationCenter {
             (this.shadow.getElementById('c411-leaderboard-rank') as HTMLSelectElement).value = (state.rankId || 0).toString();
         }
         (this.shadow.getElementById('c411-quick-scan') as HTMLInputElement).checked = state.quickScan;
-        
         this.toggleScanUI(true);
         this.currentScanner = new UserScanner(this.shadow);
-        if (toolId === 'registration') {
-            await this.currentScanner.scanInterval(state.startDate, state.endDate, state.quickScan ? 2 : 999, state.currentPage);
-        }
+        if (toolId === 'registration') await this.currentScanner.scanInterval(state.startDate, state.endDate, state.quickScan ? 2 : 999, state.currentPage);
         this.toggleScanUI(false);
         this.currentScanner = null;
     }
@@ -367,7 +358,7 @@ export class ModerationCenter {
             if (profile && profile.trackerBanned) {
                 this.removeUserFromList(userId);
             } else {
-                const row = this.shadow!.querySelector(`[data-user-id="${userId}"]`);
+                const row = this.shadow!.querySelector(`[data-user-id="${userId}"]`) as HTMLElement;
                 const btn = row?.querySelector('.refresh-user');
                 if (btn) btn.innerHTML = '🔄';
             }
@@ -391,7 +382,7 @@ export class ModerationCenter {
 
     private removeUserFromList(userId: number) {
         this.allSessionEntries = this.allSessionEntries.filter(e => e.user.id !== userId);
-        const row = this.shadow!.querySelector(`[data-user-id="${userId}"]`);
+        const row = this.shadow!.querySelector(`[data-user-id="${userId}"]`) as HTMLElement;
         if (row) {
             row.style.opacity = '0';
             row.style.transform = 'translateX(20px)';

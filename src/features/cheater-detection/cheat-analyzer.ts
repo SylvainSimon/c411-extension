@@ -60,7 +60,7 @@ export const CheatAnalyzer = {
       await this._enrichWithDeepAnalysis(torrent, userId, thresholds, snatches, torrentRules);
     }
 
-    const scoring = this._calculateGlobalScore(suspiciousTorrents, snatches.length, globalWarnings);
+    const scoring = this._calculateGlobalScore(suspiciousTorrents, globalWarnings);
     return {
       userId, totalDownloads: snatches.length, totalUploaded, totalDownloaded,
       globalRatio: totalDownloaded > 0 ? (totalUploaded / totalDownloaded).toFixed(2) : '0',
@@ -135,7 +135,7 @@ export const CheatAnalyzer = {
     } catch {}
   },
 
-  _calculateGlobalScore(suspiciousTorrents: SuspiciousTorrent[], totalDownloads: number, globalWarnings: string[]) {
+  _calculateGlobalScore(suspiciousTorrents: SuspiciousTorrent[], globalWarnings: string[]) {
     if (suspiciousTorrents.length === 0 && globalWarnings.length === 0) {
       return { suspicionScore: 0, suspicionLevel: 'clean' as const, suspicionMessage: 'Aucun comportement suspect' };
     }
