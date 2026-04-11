@@ -1,0 +1,63 @@
+<tr class="c411-mod-user-row" 
+    data-user-id="{{ user.id }}" 
+    data-score="{{ suspicionScore }}"
+    data-flags="{{ flags|join(',') }}">
+    <td>
+        <div class="user-info">
+            <span class="username">{{ user.username }}</span>
+            <span class="user-id">#{{ user.id }}</span>
+        </div>
+    </td>
+    <td>{{ createdAtFormatted }}</td>
+    <td>
+        <span class="score-badge score-{{ suspicionLevel }}">
+            {{ suspicionScore }}
+        </span>
+    </td>
+    <td>
+        <div class="detection-badges">
+            {% if 'late' in flags %}<span class="det-badge late" title="Activité Tardive">🕒 Tardif</span>{% endif %}
+            {% if 'rank1' in flags %}<span class="det-badge rank1" title="Rang #1 au classement">🥇 Rang #1</span>{% endif %}
+            {% if 'dominant' in flags %}<span class="det-badge dominant" title="Domination (Upload x10)">👑 Dominant</span>{% endif %}
+            {% if 'fast' in flags %}<span class="det-badge fast" title="Débit > 1Gbps">🚀 Rapide</span>{% endif %}
+            {% if 'ratio' in flags %}<span class="det-badge ratio" title="Ratio Torrent > 50">📊 Gros Ratio</span>{% endif %}
+            {% if 'identical' in flags %}<span class="det-badge identical" title="Uploads identiques">🔄 Identique</span>{% endif %}
+        </div>
+    </td>
+    <td>
+        <div class="row-actions">
+            <button class="c411-mod-btn-small refresh-user" title="Vérifier si banni">🔄</button>
+            <button class="c411-mod-btn-small view-details" title="Voir l'analyse détaillée">🔍</button>
+            <a href="/user/{{ user.username }}" target="_blank" class="c411-mod-btn-small" title="Ouvrir le profil">👤</a>
+            {% if suspicionLevel == 'critical' or suspicionLevel == 'high' %}
+                <button class="c411-mod-btn-small danger ban-user" 
+                        data-user-id="{{ user.id }}" 
+                        data-username="{{ user.username }}"
+                        data-reason="{{ suspicionMessage }} - {{ totalSnatches }} snatches."
+                        title="Bannir">🚫</button>
+            {% endif %}
+        </div>
+    </td>
+</tr>
+
+<style>
+    .user-info { display: flex; flex-direction: column; }
+    .username { font-weight: bold; color: var(--primary); }
+    .user-id { font-size: 0.75em; color: var(--secondary); font-family: monospace; }
+    .c411-mod-user-row:hover { background: var(--row-hover); }
+    
+    .detection-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+    .det-badge { padding: 2px 8px; border-radius: 4px; font-size: 0.75em; font-weight: bold; text-transform: uppercase; border: 1px solid rgba(255,255,255,0.1); }
+    
+    .det-badge.late { background: rgba(138, 180, 248, 0.15); color: #8ab4f8; }
+    .det-badge.rank1 { background: rgba(255, 215, 0, 0.1); color: #ffd700; border-color: rgba(255, 215, 0, 0.3); }
+    .det-badge.dominant { background: rgba(253, 214, 99, 0.15); color: #fdd663; }
+    .det-badge.fast { background: rgba(129, 201, 149, 0.15); color: #81c995; }
+    .det-badge.ratio { background: rgba(242, 139, 130, 0.15); color: #f28b82; }
+    .det-badge.identical { background: #8ab4f8; color: #202124; }
+
+    .row-actions { display: flex; gap: 8px; }
+    .c411-mod-btn-small { padding: 6px 10px; border: 1px solid var(--border); background: #3c4043; color: var(--text); border-radius: 6px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+    .c411-mod-btn-small.danger { color: var(--danger); border-color: var(--danger); }
+    .c411-mod-btn-small:hover { background: #4f5256; }
+</style>

@@ -1,0 +1,156 @@
+<div id="c411-details-modal" class="c411-modal-overlay">
+    <div class="c411-modal-content">
+        <header class="c411-modal-header">
+            <div class="c411-modal-title">
+                <span class="user-id">#{{ analysis.userId }}</span>
+                <h3>Analyse de {{ username }}</h3>
+            </div>
+            <button id="c411-close-details" class="c411-close-btn">&times;</button>
+        </header>
+        
+        <div class="c411-modal-body">
+            <div class="c411-grid-top">
+                <div class="c411-card score-card score-{{ analysis.suspicionLevel }}">
+                    <div class="score-main">
+                        <span class="score-value">{{ analysis.suspicionScore }}</span>
+                        <div class="score-text">
+                            <div class="score-level">{{ analysis.suspicionLevel|upper }}</div>
+                            <div class="score-msg">{{ analysis.suspicionMessage }}</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="c411-card stats-card">
+                    <div class="compact-stats">
+                        <div class="c-stat"><span>Snatches</span><strong>{{ analysis.totalDownloads }}</strong></div>
+                        <div class="c-stat"><span>Ratio</span><strong>{{ analysis.globalRatio }}</strong></div>
+                        <div class="c-stat"><span>Upload</span><strong>{{ totalUploadedFormatted }}</strong></div>
+                        <div class="c-stat"><span>Download</span><strong>{{ totalDownloadedFormatted }}</strong></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="c411-ban-suggestion">
+                <div class="suggestion-header">
+                    <h4>Motif suggéré</h4>
+                    <button class="c411-mod-btn-small danger ban-user" 
+                            data-user-id="{{ analysis.userId }}" 
+                            data-username="{{ username }}"
+                            data-reason="{{ analysis.suspicionMessage }} - {{ analysis.totalDownloads }} snatches analysés.">
+                        🚫 Bannir cet utilisateur
+                    </button>
+                </div>
+                <div class="suggestion-box">{{ analysis.suspicionMessage }} - {{ analysis.totalDownloads }} snatches analysés.</div>
+            </div>
+
+            {% if analysis.globalWarnings.length > 0 %}
+            <div class="c411-warnings-list">
+                {% for warning in analysis.globalWarnings %}
+                    <div class="warning-item">⚠️ {{ warning }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="c411-torrents-list">
+                <h4>Torrents Suspects ({{ analysis.suspiciousTorrents.length }})</h4>
+                <div class="compact-table-container">
+                    <table class="compact-table">
+                        <thead>
+                            <tr>
+                                <th>Torrent</th>
+                                <th>Analyse & Preuves</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for torrent in analysis.suspiciousTorrents %}
+                            <tr>
+                                <td class="t-info">
+                                    <div class="t-name" title="{{ torrent.name }}">{{ torrent.name }}</div>
+                                    <div class="t-stats">
+                                        <span class="t-badge">Ratio: {{ torrent.ratioBySizeFormatted }}</span>
+                                        <span class="t-badge">Speed: {{ torrent.uploadSpeedFormatted }}</span>
+                                    </div>
+                                </td>
+                                <td class="t-reasons">
+                                    {% for reason in torrent.suspicionReasons %}
+                                        <span class="reason-tag">{{ reason }}</span>
+                                    {% endfor %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .c411-modal-overlay {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center;
+        z-index: 2000000; animation: fadeIn 0.2s ease-out;
+    }
+
+    .c411-modal-content {
+        width: 850px; max-height: 90vh; background: #202124;
+        border: 1px solid #3c4043; border-radius: 12px;
+        display: flex; flex-direction: column; box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+    }
+
+    .c411-modal-header {
+        padding: 12px 20px; border-bottom: 1px solid #3c4043;
+        display: flex; justify-content: space-between; align-items: center;
+    }
+
+    .c411-modal-title { display: flex; align-items: center; gap: 12px; }
+    .c411-modal-title h3 { margin: 0; font-size: 1.1em; color: #e8eaed; }
+    .user-id { background: #3c4043; color: #9aa0a6; padding: 2px 6px; border-radius: 4px; font-size: 0.8em; font-family: monospace; }
+
+    .c411-modal-body { padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+
+    .c411-grid-top { display: grid; grid-template-columns: 1fr 1.5fr; gap: 16px; }
+
+    .c411-card { background: #292a2d; border-radius: 8px; border: 1px solid #3c4043; padding: 16px; }
+
+    .score-card.score-critical { background: rgba(242, 139, 130, 0.1); border-color: #f28b82; }
+    .score-main { display: flex; align-items: center; gap: 16px; }
+    .score-value { font-size: 2.2em; font-weight: bold; color: #f28b82; }
+    .score-level { font-size: 0.8em; font-weight: bold; opacity: 0.8; }
+    .score-msg { font-size: 0.9em; font-weight: 500; }
+
+    .compact-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .c-stat span { display: block; font-size: 0.75em; color: #9aa0a6; text-transform: uppercase; margin-bottom: 2px; }
+    .c-stat strong { font-size: 1em; color: #e8eaed; }
+
+    .c411-ban-suggestion { background: #1e1e1e; border: 1px dashed #3c4043; border-radius: 8px; padding: 12px; }
+    .suggestion-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .suggestion-header h4 { margin: 0; font-size: 0.85em; color: #9aa0a6; text-transform: uppercase; }
+    .suggestion-box { background: rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 4px; font-family: monospace; font-size: 0.9em; color: #8ab4f8; }
+
+    .warning-item { background: rgba(253, 214, 99, 0.1); border-left: 3px solid #fdd663; padding: 8px 12px; color: #fdd663; font-size: 0.9em; }
+
+    .c411-torrents-list h4 { margin: 0 0 8px 0; font-size: 0.9em; color: #e8eaed; }
+    .compact-table-container { background: #292a2d; border-radius: 8px; border: 1px solid #3c4043; overflow: hidden; }
+    .compact-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    .compact-table th { background: #3c4043; padding: 8px 12px; text-align: left; font-size: 0.75em; color: #9aa0a6; text-transform: uppercase; }
+    .compact-table td { padding: 10px 12px; border-bottom: 1px solid #3c4043; vertical-align: top; }
+
+    .t-info { width: 35%; }
+    .t-name { font-weight: 500; font-size: 0.9em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #e8eaed; }
+    .t-stats { display: flex; gap: 6px; margin-top: 4px; }
+    .t-badge { background: #3c4043; color: #e8eaed; padding: 1px 6px; border-radius: 4px; font-size: 0.75em; }
+
+    .t-reasons { width: 65%; display: flex; flex-wrap: wrap; gap: 6px; }
+    .reason-tag { background: rgba(242, 139, 130, 0.15); color: #f28b82; padding: 2px 8px; border-radius: 4px; font-size: 0.8em; border: 1px solid rgba(242, 139, 130, 0.3); }
+
+    .c411-close-btn { background: none; border: none; color: #9aa0a6; font-size: 24px; cursor: pointer; }
+    .c411-close-btn:hover { color: #e8eaed; }
+
+    .c411-mod-btn-small { padding: 4px 10px; border-radius: 6px; font-weight: bold; cursor: pointer; border: none; }
+    .c411-mod-btn-small.danger { background: #d93025; color: white; }
+    .c411-mod-btn-small.danger:hover { background: #b71c1c; }
+
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+</style>

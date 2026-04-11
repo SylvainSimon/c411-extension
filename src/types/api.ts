@@ -1,3 +1,38 @@
+export interface Rank {
+  id: number;
+  slug: string;
+  name: string;
+  color: string;
+  level: number;
+}
+
+export interface RanksResponse {
+  enabled: boolean;
+  ranks: Rank[];
+}
+
+export interface LeaderboardUser {
+  id: number;
+  username: string;
+  avatar: string | null;
+  uploaded: number;
+  downloaded: number;
+  ratio: number;
+  torrentsUploaded: number;
+  rank: {
+    id: number;
+    name: string;
+    icon: string;
+    color: string;
+    level: number;
+  };
+}
+
+export interface LeaderboardResponse {
+  users: LeaderboardUser[];
+  totalCount: number;
+}
+
 export interface SnatchData {
   infoHash: string;
   name: string;
@@ -64,4 +99,36 @@ export interface Snatcher {
   userId: number;
   actualUploaded: number;
   actualDownloaded: number;
+}
+
+export interface UserListData {
+  id: number;
+  username: string;
+  role: string;
+  validatedUploadsCount: number;
+  warnings: number;
+  isWarned: boolean;
+  parked: boolean;
+  createdAt: string;
+  uploaded: number;
+  downloaded: number;
+  ratio: number | null;
+  trackerBanned: boolean;
+  fraudScore: number | null;
+  fraudFlagged: boolean;
+  fraudDetails: string | null;
+  rankName: string | null;
+  rankIcon: string | null;
+  rankColor: string | null;
+  rankLevel: number | null;
+}
+
+export interface UserListResponse {
+  data: UserListData[];
+  meta: {
+    total: number;
+    page: number;
+    perPage: number;
+    totalPages: number;
+  };
 }

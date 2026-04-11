@@ -1,0 +1,178 @@
+<div id="c411-mod-overlay" class="c411-overlay">
+    <div class="c411-mod-window">
+        <header class="c411-mod-header">
+            <div class="c411-mod-logo">
+                <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>
+                <span>C411 Moderation Center</span>
+            </div>
+            <button id="c411-mod-close" class="c411-mod-close-btn">&times;</button>
+        </header>
+        
+        <div class="c411-mod-body">
+            <aside class="c411-mod-sidebar">
+                <div class="sidebar-top">
+                    <div class="form-group">
+                        <label>Mode de contrôle</label>
+                        <select id="c411-current-tool" class="c411-mod-input tool-select">
+                            <option value="registration">🕒 Inscriptions</option>
+                            <option value="leaderboard">🥇 Classements</option>
+                        </select>
+                    </div>
+
+                    <div class="c411-mod-tabs">
+                        <button class="c411-tab-btn active" data-tab="scan">Contrôles</button>
+                        <button class="c411-tab-btn" data-tab="history">Sessions</button>
+                    </div>
+                </div>
+
+                <div id="tab-scan-controls" class="tab-content">
+                    <div id="tool-container"></div>
+                </div>
+
+                <div id="tab-history-controls" class="tab-content" style="display: none;">
+                    <div class="c411-history-box">
+                        <div class="form-group">
+                            <label>Historique des analyses</label>
+                            <select id="c411-session-selector" class="c411-mod-input"></select>
+                        </div>
+                        <div class="history-actions">
+                            <button id="c411-delete-session" class="btn-outline-danger">Supprimer</button>
+                            <button id="c411-clear-all-sessions" class="btn-link-danger">Vider tout</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="c411-sidebar-footer">
+                    <button id="c411-resume-scan" class="btn-resume" style="display: none;">
+                        ▶ REPRENDRE : <span id="resume-scan-name">...</span>
+                    </button>
+                    
+                    <button id="c411-stop-scan" class="btn-pause" style="display: none;">
+                        ⏸ PAUSE LE SCAN
+                    </button>
+
+                    <div id="c411-scan-progress-box" class="progress-container" style="display: none;">
+                        <div class="progress-info">
+                            <span id="c411-progress-text">0/0</span>
+                            <span id="c411-progress-percent">0%</span>
+                        </div>
+                        <div class="progress-track"><div id="c411-progress-bar-fill" class="progress-fill"></div></div>
+                    </div>
+                    
+                    <div id="c411-scan-status" class="scan-status">Prêt</div>
+                </div>
+            </aside>
+            
+            <main class="c411-mod-content">
+                <header class="results-header">
+                    <div class="header-main">
+                        <h2 id="c411-current-title">Nouvelle Analyse</h2>
+                        <div class="pattern-filters">
+                            <span class="label">Filtrer :</span>
+                            <button class="pat-btn" data-flag="late">🕒 Tardif</button>
+                            <button class="pat-btn" data-flag="rank1">🥇 Rang #1</button>
+                            <button class="pat-btn" data-flag="dominant">👑 Dominant</button>
+                            <button class="pat-btn" data-flag="fast">🚀 Rapide</button>
+                            <button class="pat-btn" data-flag="ratio">📊 Ratio</button>
+                            <button class="pat-btn" data-flag="identical">🔄 Identique</button>
+                        </div>
+                    </div>
+                    
+                    <div class="header-right">
+                        <button id="c411-clean-list" class="btn-clean" title="Vérifier et retirer les membres déjà bannis de cette liste">✨ Retirer les bannis</button>
+                        <div class="stats-group">
+                            <div class="stat"><span id="c411-stat-total">0</span><span>Suspects</span></div>
+                            <div class="stat danger"><span id="c411-stat-suspect">0</span><span>Moyens</span></div>
+                            <div class="stat critical"><span id="c411-stat-critical">0</span><span>Critiques</span></div>
+                        </div>
+                    </div>
+                </header>
+
+                <div id="c411-limit-warning" class="alert-warning" style="display: none;">
+                    Affichage limité aux 5 000 plus suspects.
+                </div>
+                
+                <table class="c411-table">
+                    <thead>
+                        <tr>
+                            <th>Utilisateur</th>
+                            <th>Inscrit le</th>
+                            <th>Score</th>
+                            <th>Détections</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="c411-mod-results"></tbody>
+                </table>
+                <div id="c411-mod-empty" class="empty-state">Aucun profil suspect à afficher.</div>
+            </main>
+        </div>
+    </div>
+</div>
+
+<style>
+    :host {
+        --primary: #8ab4f8; --primary-dark: #1a73e8; --secondary: #9aa0a6;
+        --bg-window: #202124; --bg-body: #292a2d; --border: #3c4043;
+        --text: #e8eaed; --danger: #f28b82; --danger-dark: #d93025;
+        --warning: #fdd663;
+    }
+
+    .c411-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000000; font-family: system-ui, -apple-system, sans-serif; color: var(--text); }
+    .c411-mod-window { width: 92vw; height: 88vh; background: var(--bg-window); border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--border); box-shadow: 0 24px 64px rgba(0,0,0,0.5); }
+    .c411-mod-header { background: var(--bg-window); color: var(--primary); padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
+    .c411-mod-logo { display: flex; align-items: center; gap: 10px; font-weight: bold; font-size: 1.1em; }
+    .c411-mod-close-btn { background: none; border: none; color: var(--secondary); font-size: 24px; cursor: pointer; }
+    
+    .c411-mod-body { display: flex; flex: 1; overflow: hidden; }
+    .c411-mod-sidebar { width: 280px; border-right: 1px solid var(--border); padding: 20px; background: var(--bg-window); display: flex; flex-direction: column; gap: 24px; }
+    
+    .sidebar-top { display: flex; flex-direction: column; gap: 15px; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group label { font-size: 0.65em; color: var(--secondary); font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+    .c411-mod-input { padding: 8px 10px; background: #303134; border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.9em; outline: none; }
+
+    .c411-mod-tabs { display: flex; background: #303134; border-radius: 6px; padding: 3px; }
+    .c411-tab-btn { flex: 1; border: none; background: none; color: var(--secondary); padding: 6px; font-size: 0.8em; font-weight: bold; cursor: pointer; border-radius: 4px; }
+    .c411-tab-btn.active { background: #3c4043; color: var(--primary); }
+
+    .tab-content { flex: 1; }
+    .c411-history-box { display: flex; flex-direction: column; gap: 12px; }
+    .history-actions { display: flex; align-items: center; justify-content: space-between; }
+    .btn-outline-danger { background: none; border: 1px solid var(--danger); color: var(--danger); padding: 5px 12px; border-radius: 4px; font-size: 0.8em; cursor: pointer; font-weight: bold; }
+    .btn-link-danger { background: none; border: none; color: var(--secondary); font-size: 0.75em; cursor: pointer; text-decoration: underline; }
+
+    .c411-sidebar-footer { margin-top: auto; display: flex; flex-direction: column; gap: 12px; padding-top: 15px; border-top: 1px solid var(--border); }
+    .btn-resume { background: rgba(138, 180, 248, 0.1); border: 1px solid var(--primary); color: var(--primary); padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.8em; }
+    .btn-pause { background: #3c4043; border: 1px solid var(--border); color: var(--text); padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.8em; }
+
+    .progress-container { display: flex; flex-direction: column; gap: 6px; }
+    .progress-info { display: flex; justify-content: space-between; font-size: 0.75em; color: var(--secondary); font-weight: bold; }
+    .progress-track { height: 4px; background: #3c4043; border-radius: 2px; overflow: hidden; }
+    .progress-fill { height: 100%; background: var(--primary); width: 0%; transition: width 0.3s; }
+    .scan-status { font-size: 0.75em; color: var(--secondary); padding: 8px; border-radius: 4px; background: rgba(255,255,255,0.02); text-align: center; }
+    
+    .c411-mod-content { flex: 1; padding: 24px; overflow-y: auto; background: var(--bg-body); display: flex; flex-direction: column; gap: 20px; }
+    .results-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border); padding-bottom: 15px; }
+    .header-main { display: flex; flex-direction: column; gap: 12px; }
+    .results-header h2 { margin: 0; font-size: 1.3em; color: var(--primary); }
+    
+    .pattern-filters { display: flex; align-items: center; gap: 6px; }
+    .pattern-filters .label { font-size: 0.7em; color: var(--secondary); font-weight: bold; text-transform: uppercase; margin-right: 4px; }
+    .pat-btn { background: #3c4043; border: 1px solid var(--border); color: var(--secondary); padding: 3px 10px; border-radius: 15px; font-size: 0.75em; cursor: pointer; }
+    .pat-btn.active { background: var(--primary-dark); border-color: var(--primary); color: white; }
+
+    .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+    .btn-clean { background: rgba(138, 180, 248, 0.05); border: 1px solid var(--primary); color: var(--primary); padding: 4px 12px; border-radius: 4px; font-size: 0.8em; cursor: pointer; font-weight: bold; }
+    .stats-group { display: flex; gap: 10px; }
+    .stat { background: var(--bg-window); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; min-width: 70px; }
+    .stat span:first-child { font-size: 1.2em; font-weight: bold; line-height: 1; }
+    .stat span:last-child { font-size: 0.65em; text-transform: uppercase; color: var(--secondary); margin-top: 4px; }
+    .stat.danger span:first-child { color: var(--warning); }
+    .stat.critical span:first-child { color: var(--danger); }
+
+    .c411-table { width: 100%; border-collapse: collapse; }
+    .c411-table th { text-align: left; padding: 12px; border-bottom: 2px solid var(--border); color: var(--secondary); font-size: 0.7em; text-transform: uppercase; letter-spacing: 1px; }
+    .c411-table td { padding: 12px; border-bottom: 1px solid var(--border); }
+    .empty-state { text-align: center; padding: 80px; color: var(--secondary); font-style: italic; font-size: 0.9em; }
+</style>

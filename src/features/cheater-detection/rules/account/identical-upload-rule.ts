@@ -1,5 +1,5 @@
-import { CheatRuleRegistry } from '../cheat-rule-registry';
-import { FormatUtils } from '../../../core/utils/format-utils';
+import { CheatRuleRegistry } from '../../cheat-rule-registry';
+import { FormatUtils } from '../../../../core/utils/format-utils';
 
 CheatRuleRegistry.register({
   id: 'identical-upload',
@@ -50,3 +50,4 @@ CheatRuleRegistry.register({
     return null;
   }
 });
+

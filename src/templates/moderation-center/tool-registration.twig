@@ -1,0 +1,55 @@
+<div class="c411-tool-form">
+    <div class="form-group">
+        <label>Raccourcis de période</label>
+        <select id="c411-date-presets" class="c411-input">
+            <option value="">-- Choisir une période --</option>
+            <option value="today">Aujourd'hui</option>
+            <option value="yesterday">Hier</option>
+            <option value="this-week">Cette semaine</option>
+            <option value="last-week">Semaine dernière</option>
+            <option value="this-month">Ce mois-ci</option>
+            <option value="last-month">Le mois dernier</option>
+        </select>
+    </div>
+    
+    <div class="form-group">
+        <label>Dates personnalisées</label>
+        <div class="date-row">
+            <input type="date" id="c411-scan-date-start" class="c411-input">
+            <input type="date" id="c411-scan-date-end" class="c411-input">
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label class="checkbox-inline">
+            <input type="checkbox" id="c411-quick-scan" checked>
+            <span>Analyse rapide (2 pages de snatches)</span>
+        </label>
+    </div>
+
+    <button id="c411-start-scan" class="btn-primary">LANCER LE SCAN</button>
+</div>
+
+<style>
+    .c411-tool-form { display: flex; flex-direction: column; gap: 18px; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group label { font-size: 0.7em; color: var(--secondary); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+    
+    .c411-input { 
+        background: #303134; border: 1px solid var(--border); border-radius: 6px; 
+        color: var(--text); padding: 8px 10px; font-size: 0.9em; outline: none;
+    }
+    .c411-input:focus { border-color: var(--primary); }
+
+    .date-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    
+    .checkbox-inline { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85em; margin-top: 5px; }
+    .checkbox-inline input { width: 15px; height: 15px; cursor: pointer; }
+
+    .btn-primary { 
+        background: var(--primary-dark); color: white; border: none; padding: 12px; 
+        border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.9em;
+        transition: filter 0.2s;
+    }
+    .btn-primary:hover { filter: brightness(1.1); }
+</style>

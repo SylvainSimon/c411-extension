@@ -50,6 +50,20 @@ export const FormatUtils = {
   },
 
   /**
+   * Formate une date au format français (JJ/MM/AAAA HH:mm)
+   */
+  formatDate(dateStr: string): string {
+    const date = this.parseDate(dateStr);
+    return date.toLocaleString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  },
+
+  /**
    * Formate une durée depuis des secondes avec padding des 0
    */
   formatDuration(seconds?: number): string {

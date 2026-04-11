@@ -2,7 +2,7 @@ import { AppConfig } from '../../types/config';
 
 const defaults: AppConfig = {
   tmdbApiKey: '',
-  minRatio: 25,
+  minRatio: 100,
   minUploadedTB: null,
   apiRateLimit: 200,
   deepAnalysisLimit: 5

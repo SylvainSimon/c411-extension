@@ -1,4 +1,4 @@
-import { CheatRuleRegistry } from '../cheat-rule-registry';
+import { CheatRuleRegistry } from '../../../cheat-rule-registry';
 
 CheatRuleRegistry.register({
   id: 'late-activity',
@@ -21,3 +21,5 @@ CheatRuleRegistry.register({
     return null;
   }
 });
+
+
