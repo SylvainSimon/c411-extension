@@ -43,8 +43,8 @@
                 </div>
 
                 <div class="c411-sidebar-footer">
-                    <button id="c411-resume-scan" class="btn-resume" style="display: none;">
-                        ▶ REPRENDRE : <span id="resume-scan-name">...</span>
+                    <button id="c411-resume-scan" class="btn-pause" style="display: none;">
+                        ▶ REPRENDRE LE SCAN
                     </button>
                     
                     <button id="c411-stop-scan" class="btn-pause" style="display: none;">
@@ -77,6 +77,9 @@
                                 <button class="pat-btn" data-flag="ratio">📊 Ratio</button>
                                 <button class="pat-btn" data-flag="identical">🔄 Identique</button>
                                 <button class="pat-btn" data-flag="onesnatch">🎯 1 Snatch</button>
+                                <button class="pat-btn" data-flag="is_uploader">📤 Uploader</button>
+                                <button class="pat-btn" data-flag="no_upload">🔇 0 Upload</button>
+                                <button class="pat-btn" data-flag="high_impact">⚖️ Impact</button>
                             </div>
                             <div class="sort-group">
                                 <span class="label">Trier par :</span>
@@ -88,6 +91,7 @@
                                     <option value="speed_desc">🚀 Vitesse (Max)</option>
                                     <option value="ratio_desc">📊 Ratio (Max)</option>
                                     <option value="late_desc">🕒 Retard (Max)</option>
+                                    <option value="impact_desc">⚖️ Impact (Max)</option>
                                 </select>
                             </div>
                         </div>
@@ -113,6 +117,7 @@
                             <th>Utilisateur</th>
                             <th>Inscrit le</th>
                             <th>Score</th>
+                            <th>Impact</th>
                             <th>Détections</th>
                             <th>Actions</th>
                         </tr>

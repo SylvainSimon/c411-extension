@@ -1,17 +1,32 @@
 <tr class="c411-mod-user-row main-row" 
     data-user-id="{{ user.id }}" 
     data-score="{{ suspicionScore }}"
-    data-flags="{{ flags|keys|join(',') }}">
+    data-flags="{{ filterFlags }}">
     <td>
         <div class="user-info">
-            <span class="username">{{ user.username }}</span>
-            <span class="user-id">#{{ user.id }}</span>
+            <div class="user-main">
+                <span class="username">{{ user.username }}</span>
+                {% if user.isTeam %}
+                    <span class="team-badge">{{ user.teamName ?: 'TEAM' }}</span>
+                {% endif %}
+            </div>
+            <div class="user-sub">
+                <span class="user-id">#{{ user.id }}</span>
+                {% if user.torrentsUploaded > 0 %}
+                    <span class="user-uploads" title="Nombre de torrents uploadés">📤 {{ user.torrentsUploaded }}</span>
+                {% endif %}
+            </div>
         </div>
     </td>
     <td>{{ createdAtFormatted }}</td>
     <td>
         <span class="score-badge score-{{ suspicionLevel }}">
             {{ suspicionScore }}
+        </span>
+    </td>
+    <td>
+        <span class="impact-badge {% if impactPercent >= 50 %}impact-high{% endif %}" title="Impact de la triche sur l'upload total">
+            {{ impactPercent }}%
         </span>
     </td>
     <td>
@@ -108,9 +123,25 @@
     
     .synthese-text { font-size: 0.85em; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 4px; border-left: 2px solid var(--secondary); color: var(--secondary); font-style: italic; }
     
-    .user-info { display: flex; flex-direction: column; }
+    .score-container { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .score-badge { padding: 4px 10px; border-radius: 6px; font-weight: 900; font-size: 0.9em; min-width: 35px; text-align: center; }
+    .score-badge.score-critical { background: rgba(217, 48, 37, 0.15); color: #f28b82; border: 1px solid rgba(217, 48, 37, 0.3); }
+    .score-badge.score-high { background: rgba(232, 113, 10, 0.15); color: #fb923c; border: 1px solid rgba(232, 113, 10, 0.3); }
+    .score-badge.score-medium { background: rgba(250, 204, 21, 0.15); color: #fcc934; }
+    .score-badge.score-low { background: rgba(138, 180, 248, 0.15); color: #8ab4f8; }
+
+    .impact-badge { font-size: 0.65em; font-weight: bold; color: var(--secondary); opacity: 0.8; border: 1px solid var(--border); padding: 1px 4px; border-radius: 4px; }
+    .impact-badge.impact-high { color: var(--danger); border-color: var(--danger); opacity: 1; }
+
+    .user-info { display: flex; flex-direction: column; gap: 2px; }
+    .user-main { display: flex; align-items: center; gap: 6px; }
+    .user-sub { display: flex; align-items: center; gap: 10px; }
+    
     .username { font-weight: bold; color: var(--primary); }
+    .team-badge { background: #fdd663; color: #202124; font-size: 0.6em; font-weight: 900; padding: 1px 4px; border-radius: 3px; letter-spacing: 0.5px; }
+    
     .user-id { font-size: 0.75em; color: var(--secondary); font-family: monospace; }
+    .user-uploads { font-size: 0.75em; color: #81c995; font-weight: bold; }
     
     .detection-badges { display: flex; flex-wrap: wrap; gap: 6px; }
     .det-badge { padding: 2px 8px; border-radius: 4px; font-size: 0.75em; font-weight: bold; text-transform: uppercase; border: 1px solid rgba(255,255,255,0.1); }

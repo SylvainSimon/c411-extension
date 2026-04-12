@@ -74,6 +74,12 @@ export interface UserProfileData {
   memberSince: string;
   validatedUploadsCount: number;
   trackerBanned: boolean;
+  isParked: boolean;
+  isTeam: boolean;
+  teamName: string | null;
+  isDonor: boolean;
+  isEarlyAdopter: boolean;
+  isHelper: boolean;
   uploaderTier?: {
     name: string;
     slug: string;
@@ -121,6 +127,9 @@ export interface UserListData {
   rankIcon: string | null;
   rankColor: string | null;
   rankLevel: number | null;
+  isTeam: boolean;
+  teamName: string | null;
+  torrentsUploaded: number;
 }
 
 export interface UserListResponse {

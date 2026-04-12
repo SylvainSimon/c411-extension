@@ -39,6 +39,11 @@ export class ModerationCenter {
 
     public addLiveEntry(user: any, analysis: any) {
         if (analysis.suspicionScore === 0) return; 
+        
+        // Empêcher les doublons dans le tableau
+        const exists = this.allSessionEntries.some(e => e.user.id === user.id);
+        if (exists) return;
+
         const entry = { user, analysis, timestamp: Date.now() };
         this.allSessionEntries.push(entry);
         if (this.activePatternFlags.size > 0) this.applyAllFilters();
@@ -107,11 +112,7 @@ export class ModerationCenter {
         if (!this.shadow) return;
         const state = await HistoryService.getScanState();
         const resumeBtn = this.shadow.getElementById('c411-resume-scan');
-        const resumeName = this.shadow.getElementById('resume-scan-name');
-        if (state && resumeBtn && resumeName) {
-            const sessions = await HistoryService.getSessionsList();
-            const session = sessions.find(s => s.id === state.sessionId);
-            resumeName.textContent = session ? `${session.name} (page ${state.currentPage})` : `Page ${state.currentPage}`;
+        if (state && resumeBtn) {
             resumeBtn.style.display = 'block';
         } else if (resumeBtn) resumeBtn.style.display = 'none';
     }
@@ -190,6 +191,14 @@ export class ModerationCenter {
         });
     }
 
+    public shouldDisplayUser(analysis: AnalysisResult, user: UserListData): boolean {
+        if (this.activePatternFlags.size === 0) return true;
+        const flags = this.calculateFlags(analysis, user);
+        let match = true;
+        this.activePatternFlags.forEach(f => { if (!flags.includes(f)) match = false; });
+        return match;
+    }
+
     private async switchTool(toolId: string) {
         if (!this.shadow) return;
         if (toolId === 'registration') await new RegistrationTool(this.shadow, this).render();
@@ -204,7 +213,7 @@ export class ModerationCenter {
         // 1. Filtrage par flags
         if (this.activePatternFlags.size > 0) {
             filtered = filtered.filter(entry => {
-                const flags = this.calculateFlags(entry.analysis);
+                const flags = this.calculateFlags(entry.analysis, entry.user);
                 let match = true;
                 this.activePatternFlags.forEach(f => { if (!flags.includes(f)) match = false; });
                 return match;
@@ -239,6 +248,10 @@ export class ModerationCenter {
                         valA = Math.max(0, ...a.analysis.suspiciousTorrents.map(t => t.delayFromCreationDays || 0));
                         valB = Math.max(0, ...b.analysis.suspiciousTorrents.map(t => t.delayFromCreationDays || 0));
                         break;
+                    case 'impact':
+                        valA = (a.analysis.totalSuspiciousUploaded / (a.user.uploaded || 1));
+                        valB = (b.analysis.totalSuspiciousUploaded / (b.user.uploaded || 1));
+                        break;
                     default:
                         return 0;
                 }
@@ -253,7 +266,7 @@ export class ModerationCenter {
         this.renderEntriesInChunks(filtered, tempScanner);
     }
 
-    private calculateFlags(analysis: AnalysisResult): string[] {
+    private calculateFlags(analysis: AnalysisResult, user: UserListData): string[] {
         const flags = [];
         const st = analysis.suspiciousTorrents || [];
         if (st.some(t => t.isLateActivity)) flags.push('late');
@@ -263,6 +276,16 @@ export class ModerationCenter {
         if (st.some(t => t.actualRatio > 50)) flags.push('ratio');
         if ((analysis.globalWarnings || []).some(w => w.includes('identiques'))) flags.push('identical');
         if (analysis.totalDownloads === 1) flags.push('onesnatch');
+        
+        // Nouveaux flags liés aux uploads
+        if (user.torrentsUploaded > 0) flags.push('is_uploader');
+        else flags.push('no_upload');
+
+        // Flag Impact
+        const totalUserUpload = user.uploaded || 1;
+        const impactPercent = Math.min(100, Math.round((analysis.totalSuspiciousUploaded / totalUserUpload) * 100));
+        if (impactPercent >= 50) flags.push('high_impact');
+
         return flags;
     }
 
@@ -359,7 +382,7 @@ export class ModerationCenter {
         if (!this.shadow) return;
         const filtered = this.allSessionEntries.filter(entry => {
             if (this.activePatternFlags.size === 0) return true;
-            const flags = this.calculateFlags(entry.analysis);
+            const flags = this.calculateFlags(entry.analysis, entry.user);
             let match = true;
             this.activePatternFlags.forEach(f => { if (!flags.includes(f)) match = false; });
             return match;
@@ -389,9 +412,17 @@ export class ModerationCenter {
             (this.shadow.getElementById('c411-leaderboard-rank') as HTMLSelectElement).value = (state.rankId || 0).toString();
         }
         (this.shadow.getElementById('c411-quick-scan') as HTMLInputElement).checked = state.quickScan;
+        (this.shadow.getElementById('c411-min-torrent-size') as HTMLInputElement).value = (state.minTorrentSize || 50).toString();
+        
         this.toggleScanUI(true);
         this.currentScanner = new UserScanner(this.shadow);
-        if (toolId === 'registration') await this.currentScanner.scanInterval(state.startDate, state.endDate, state.quickScan ? 2 : 999, state.currentPage);
+        if (toolId === 'registration') {
+            await this.currentScanner.scanInterval(state.startDate, state.endDate, state.quickScan ? 2 : 999, state.currentPage, state.minTorrentSize || 50);
+        } else {
+            // Pour le leaderboard on ne peut pas vraiment "reprendre" au milieu du tableau trié via API simplement
+            // mais on relance avec les mêmes paramètres
+            await (new LeaderboardTool(this.shadow, this) as any).startScan();
+        }
         this.toggleScanUI(false);
         this.currentScanner = null;
     }
@@ -402,7 +433,7 @@ export class ModerationCenter {
         if (!username) return;
         try {
             const profile = await C411ApiClient.getUserProfile(username);
-            if (profile && profile.trackerBanned) {
+            if (profile && (profile.trackerBanned || profile.isParked)) {
                 this.removeUserFromList(userId);
             }
         } catch {}

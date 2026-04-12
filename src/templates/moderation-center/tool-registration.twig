@@ -1,38 +1,37 @@
 <div class="c411-tool-form">
     <div class="form-group">
-        <label>Raccourcis de période</label>
-        <select id="c411-date-presets" class="c411-input">
-            <option value="">-- Choisir une période --</option>
-            <option value="today">Aujourd'hui</option>
-            <option value="yesterday">Hier</option>
-            <option value="this-week">Cette semaine</option>
-            <option value="last-week">Semaine dernière</option>
-            <option value="this-month">Ce mois-ci</option>
-            <option value="last-month">Le mois dernier</option>
-        </select>
-    </div>
-    
-    <div class="form-group">
-        <label>Dates personnalisées</label>
+        <label>Période d'inscription</label>
         <div class="date-row">
             <input type="date" id="c411-scan-date-start" class="c411-input">
             <input type="date" id="c411-scan-date-end" class="c411-input">
         </div>
     </div>
 
+    <hr class="section-divider">
+
+    <div class="form-group">
+        <label>Taille minimale du torrent (Mo)</label>
+        <input type="number" id="c411-min-torrent-size" class="c411-input" value="50" min="0">
+    </div>
+
     <div class="form-group">
         <label class="checkbox-inline">
             <input type="checkbox" id="c411-quick-scan" checked>
-            <span>Analyse rapide (2 pages de snatches)</span>
+            <span>Analyse rapide (2 pages)</span>
         </label>
     </div>
+
+    <hr class="section-divider">
 
     <button id="c411-start-scan" class="btn-primary">LANCER LE SCAN</button>
 </div>
 
 <style>
     .c411-tool-form { display: flex; flex-direction: column; gap: 18px; }
+    .section-divider { border: 0; border-top: 1px solid var(--border); margin: 5px 0; opacity: 0.5; }
+    .section-label { font-size: 0.6em; font-weight: 900; color: var(--primary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: -10px; }
     .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .help-text { font-size: 0.7em; color: var(--secondary); opacity: 0.7; }
     .form-group label { font-size: 0.7em; color: var(--secondary); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
     
     .c411-input { 

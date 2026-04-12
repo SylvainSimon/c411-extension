@@ -70,15 +70,22 @@ export class RegistrationTool {
         const startInput = this.shadow.getElementById('c411-scan-date-start') as HTMLInputElement;
         const endInput = this.shadow.getElementById('c411-scan-date-end') as HTMLInputElement;
         const quickScanCheckbox = this.shadow.getElementById('c411-quick-scan') as HTMLInputElement;
+        const minSizeInput = this.shadow.getElementById('c411-min-torrent-size') as HTMLInputElement;
         
         const startDate = startInput.value; const endDate = endInput.value;
+        const minTorrentSize = parseInt(minSizeInput.value) || 0;
         if (!startDate || !endDate) return;
 
         const now = new Date().toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
         const name = `Inscr. ${startDate} au ${endDate} (le ${now})`;
 
         const sessionId = `reg_${Date.now()}`;
-        const newSession: ScanSession = { id: sessionId, name, startDate, endDate, createdAt: Date.now(), quickScan: quickScanCheckbox.checked, entries: [] };
+        const newSession: ScanSession = { 
+            id: sessionId, name, startDate, endDate, createdAt: Date.now(), 
+            quickScan: quickScanCheckbox.checked, 
+            minTorrentSize,
+            entries: [] 
+        };
         
         await HistoryService.saveSession(newSession);
         this.parent.setCurrentSessionId(sessionId);
@@ -91,7 +98,7 @@ export class RegistrationTool {
         this.parent.setScanner(scanner);
         
         this.parent.toggleScanUI(true);
-        await scanner.scanInterval(startDate, endDate, quickScanCheckbox?.checked ? 2 : 999, 1);
+        await scanner.scanInterval(startDate, endDate, quickScanCheckbox?.checked ? 2 : 999, 1, minTorrentSize);
         this.parent.toggleScanUI(false);
     }
 }

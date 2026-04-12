@@ -15,17 +15,19 @@ export interface ScanSession {
     rankId?: number; // Nouveau
     createdAt: number;
     quickScan: boolean;
+    minTorrentSize: number;
     entries: HistoryEntry[];
-}
+    }
 
-export interface ScanState {
+    export interface ScanState {
     sessionId: string;
     startDate: string;
     endDate: string;
-    rankId?: number; // Nouveau
+    rankId?: number;
     currentPage: number;
     quickScan: boolean;
-}
+    minTorrentSize: number;
+    }
 
 const INDEX_KEY = 'c411_mod_sessions_index';
 const STATE_KEY = 'c411_current_scan_state';

@@ -33,6 +33,7 @@ export interface AnalysisResult {
   totalDownloads: number;
   totalUploaded: number;
   totalDownloaded: number;
+  totalSuspiciousUploaded: number; // Nouveau: volume total suspect
   globalRatio: string;
   suspiciousTorrents: SuspiciousTorrent[];
   globalWarnings: string[]; // Nouvelles alertes au niveau du compte

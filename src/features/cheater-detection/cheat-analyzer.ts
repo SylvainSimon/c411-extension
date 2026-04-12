@@ -22,10 +22,15 @@ export const CheatStats = {
 };
 
 export const CheatAnalyzer = {
-  async analyze(userId: number, thresholds: AppConfig | null = null, maxPages = 999): Promise<AnalysisResult | null> {
+  async analyze(userId: number, thresholds: AppConfig | null = null, maxPages = 999, minTorrentSize = 50): Promise<AnalysisResult | null> {
     if (!thresholds) thresholds = await Config.getAll();
-    const snatches = await C411ApiClient.getAllUserSnatchHistory(userId, thresholds.apiRateLimit, maxPages);
+    let snatches = await C411ApiClient.getAllUserSnatchHistory(userId, thresholds.apiRateLimit, maxPages);
     if (!snatches || snatches.length === 0) return null;
+
+    // Filtrage par taille minimum
+    const minSizeBytes = minTorrentSize * 1024 * 1024;
+    snatches = snatches.filter(s => s.size >= minSizeBytes);
+    if (snatches.length === 0) return null;
 
     let totalUploaded = 0; let totalDownloaded = 0;
     const suspiciousTorrents: SuspiciousTorrent[] = [];
@@ -62,8 +67,11 @@ export const CheatAnalyzer = {
     }
 
     const scoring = this._calculateGlobalScore(suspiciousTorrents, globalWarnings);
+    const totalSuspiciousUploaded = suspiciousTorrents.reduce((sum, t) => sum + t.actualUploaded, 0);
+
     return {
       userId, totalDownloads: snatches.length, totalUploaded, totalDownloaded,
+      totalSuspiciousUploaded,
       globalRatio: totalDownloaded > 0 ? (totalUploaded / totalDownloaded).toFixed(2) : '0',
       suspiciousTorrents, globalWarnings, mostSuspicious: suspiciousTorrents[0] || null,
       ...scoring
