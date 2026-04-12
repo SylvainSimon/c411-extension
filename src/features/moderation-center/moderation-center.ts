@@ -70,6 +70,101 @@ export class ModerationCenter {
         }
     }
 
+    private async switchTool(toolId: string) {
+        if (!this.shadow) return;
+        if (toolId === 'registration') await new RegistrationTool(this.shadow, this).render();
+        else if (toolId === 'leaderboard') await new LeaderboardTool(this.shadow, this).render();
+    }
+
+    private switchTab(tab: string) {
+        if (!this.shadow) return;
+        this.shadow.querySelectorAll('.c411-tab-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-tab') === tab));
+        this.shadow.getElementById('tab-scan-controls')!.style.display = tab === 'scan' ? 'block' : 'none';
+        this.shadow.getElementById('tab-history-controls')!.style.display = tab === 'history' ? 'block' : 'none';
+        if (tab === 'history') this.refreshSessionList();
+    }
+
+    private async refreshSessionList() {
+        if (!this.shadow) return;
+        const sessions = await HistoryService.getSessionsList();
+        const selector = this.shadow.getElementById('c411-session-selector') as HTMLSelectElement;
+        selector.innerHTML = '<option value="">-- Choisir une analyse passée --</option>';
+        const regGroup = document.createElement('optgroup'); regGroup.label = '🕒 SCANS INSCRIPTIONS';
+        const leadGroup = document.createElement('optgroup'); leadGroup.label = '🥇 SCANS CLASSEMENTS';
+        sessions.forEach(s => {
+            const opt = document.createElement('option'); opt.value = s.id;
+            opt.textContent = `${s.name} (${new Date(s.createdAt).toLocaleDateString()})`;
+            if (s.id.startsWith('reg_')) regGroup.appendChild(opt); else leadGroup.appendChild(opt);
+        });
+        if (regGroup.children.length > 0) selector.appendChild(regGroup);
+        if (leadGroup.children.length > 0) selector.appendChild(leadGroup);
+    }
+
+    private async loadSession(sessionId: string) {
+        if (!sessionId || !this.shadow) return;
+        const session = await HistoryService.getSession(sessionId);
+        if (!session) return;
+        this.currentSessionId = session.id;
+        this.shadow.getElementById('c411-current-title')!.textContent = session.name;
+        
+        const toolId = sessionId.startsWith('reg_') ? 'registration' : 'leaderboard';
+        (this.shadow.getElementById('c411-current-tool') as HTMLSelectElement).value = toolId;
+        await this.switchTool(toolId);
+
+        if (toolId === 'registration') {
+            (this.shadow.getElementById('c411-scan-date-start') as HTMLInputElement).value = session.startDate;
+            (this.shadow.getElementById('c411-scan-date-end') as HTMLInputElement).value = session.endDate;
+        } else {
+            (this.shadow.getElementById('c411-leaderboard-rank') as HTMLSelectElement).value = (session.rankId || 0).toString();
+        }
+        (this.shadow.getElementById('c411-quick-scan') as HTMLInputElement).checked = session.quickScan;
+
+        this.allSessionEntries = session.entries;
+        this.applyAllFilters();
+        this.switchTab('scan');
+    }
+
+    private async deleteCurrentSession() {
+        if (!this.currentSessionId) return;
+        
+        const { isConfirmed } = await Swal.fire({
+            title: 'Supprimer cette analyse ?',
+            text: 'Cette action est irréversible.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Oui, supprimer',
+            cancelButtonText: 'Annuler'
+        });
+
+        if (isConfirmed) {
+            await HistoryService.deleteSession(this.currentSessionId);
+            this.currentSessionId = null;
+            this.allSessionEntries = [];
+            this.shadow!.getElementById('c411-mod-results')!.innerHTML = '';
+            await this.refreshSessionList();
+        }
+    }
+
+    private async clearAllSessions() {
+        const { isConfirmed } = await Swal.fire({
+            title: 'Tout supprimer ?',
+            text: 'Toutes les analyses sauvegardées seront effacées.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Oui, tout supprimer',
+            cancelButtonText: 'Annuler'
+        });
+
+        if (isConfirmed) {
+            await HistoryService.clearAllSessions();
+            this.currentSessionId = null;
+            this.allSessionEntries = [];
+            this.shadow!.getElementById('c411-mod-results')!.innerHTML = '';
+            await this.refreshSessionList();
+            await this.checkResumeState();
+        }
+    }
+
     private injectFloatingButton() {
         if (document.getElementById('c411-moderation-trigger-root')) return;
         const container = document.createElement('div');
@@ -191,35 +286,61 @@ export class ModerationCenter {
         });
     }
 
-    public shouldDisplayUser(analysis: AnalysisResult, user: UserListData): boolean {
+    public shouldDisplayUser(analysis: AnalysisResult, user: any): boolean {
         if (this.activePatternFlags.size === 0) return true;
-        const flags = this.calculateFlags(analysis, user);
-        let match = true;
-        this.activePatternFlags.forEach(f => { if (!flags.includes(f)) match = false; });
-        return match;
+        
+        const TORRENT_FLAGS = ['late', 'rank1', 'dominant', 'fast', 'ratio'];
+        const torrentFlagsSelected = Array.from(this.activePatternFlags).filter(f => TORRENT_FLAGS.includes(f));
+        const userFlagsSelected = Array.from(this.activePatternFlags).filter(f => !TORRENT_FLAGS.includes(f));
+
+        // 1. Check user-level flags (must match all selected)
+        if (userFlagsSelected.length > 0) {
+            const userFlags = this.calculateUserLevelFlags(analysis, user);
+            if (!userFlagsSelected.every(f => userFlags.includes(f))) return false;
+        }
+
+        // 2. Check torrent-level flags (must have AT LEAST ONE torrent matching ALL selected torrent flags)
+        if (torrentFlagsSelected.length > 0) {
+            const st = analysis.suspiciousTorrents || [];
+            const hasMatch = st.some(t => {
+                const tFlags = this.calculateTorrentFlags(t);
+                return torrentFlagsSelected.every(f => tFlags.includes(f));
+            });
+            if (!hasMatch) return false;
+        }
+
+        return true;
     }
 
-    private async switchTool(toolId: string) {
-        if (!this.shadow) return;
-        if (toolId === 'registration') await new RegistrationTool(this.shadow, this).render();
-        else if (toolId === 'leaderboard') await new LeaderboardTool(this.shadow, this).render();
+    private calculateTorrentFlags(t: any): string[] {
+        const flags = [];
+        if (t.isLateActivity) flags.push('late');
+        if (t.userRank === 1) flags.push('rank1');
+        if (t.isDominant) flags.push('dominant');
+        if (t.uploadSpeedMbps > 1000) flags.push('fast');
+        if (t.actualRatio > 50) flags.push('ratio');
+        return flags;
+    }
+
+    private calculateUserLevelFlags(analysis: AnalysisResult, user: any): string[] {
+        const flags = [];
+        if ((analysis.globalWarnings || []).some(w => w.includes('identiques'))) flags.push('identical');
+        if (analysis.totalDownloads === 1) flags.push('onesnatch');
+        if (user.torrentsUploaded > 0) flags.push('is_uploader');
+        else flags.push('no_upload');
+        
+        const totalUserUpload = user.uploaded || 1;
+        const impactPercent = Math.min(100, Math.round((analysis.totalSuspiciousUploaded / totalUserUpload) * 100));
+        if (impactPercent >= 50) flags.push('high_impact');
+        
+        return flags;
     }
 
     public applyAllFilters() {
         if (!this.shadow) return;
         
-        let filtered = [...this.allSessionEntries];
+        let filtered = this.allSessionEntries.filter(entry => this.shouldDisplayUser(entry.analysis, entry.user));
         
-        // 1. Filtrage par flags
-        if (this.activePatternFlags.size > 0) {
-            filtered = filtered.filter(entry => {
-                const flags = this.calculateFlags(entry.analysis, entry.user);
-                let match = true;
-                this.activePatternFlags.forEach(f => { if (!flags.includes(f)) match = false; });
-                return match;
-            });
-        }
-
         // 2. Tri
         const sortVal = (this.shadow.getElementById('c411-sort-by') as HTMLSelectElement)?.value;
         if (sortVal) {
@@ -266,127 +387,9 @@ export class ModerationCenter {
         this.renderEntriesInChunks(filtered, tempScanner);
     }
 
-    private calculateFlags(analysis: AnalysisResult, user: UserListData): string[] {
-        const flags = [];
-        const st = analysis.suspiciousTorrents || [];
-        if (st.some(t => t.isLateActivity)) flags.push('late');
-        if (st.some(t => t.userRank === 1)) flags.push('rank1');
-        if (st.some(t => t.isDominant)) flags.push('dominant');
-        if (st.some(t => t.uploadSpeedMbps > 1000)) flags.push('fast');
-        if (st.some(t => t.actualRatio > 50)) flags.push('ratio');
-        if ((analysis.globalWarnings || []).some(w => w.includes('identiques'))) flags.push('identical');
-        if (analysis.totalDownloads === 1) flags.push('onesnatch');
-        
-        // Nouveaux flags liés aux uploads
-        if (user.torrentsUploaded > 0) flags.push('is_uploader');
-        else flags.push('no_upload');
-
-        // Flag Impact
-        const totalUserUpload = user.uploaded || 1;
-        const impactPercent = Math.min(100, Math.round((analysis.totalSuspiciousUploaded / totalUserUpload) * 100));
-        if (impactPercent >= 50) flags.push('high_impact');
-
-        return flags;
-    }
-
-    private switchTab(tab: string) {
-        if (!this.shadow) return;
-        this.shadow.querySelectorAll('.c411-tab-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-tab') === tab));
-        this.shadow.getElementById('tab-scan-controls')!.style.display = tab === 'scan' ? 'block' : 'none';
-        this.shadow.getElementById('tab-history-controls')!.style.display = tab === 'history' ? 'block' : 'none';
-        if (tab === 'history') this.refreshSessionList();
-    }
-
-    private async refreshSessionList() {
-        if (!this.shadow) return;
-        const sessions = await HistoryService.getSessionsList();
-        const selector = this.shadow.getElementById('c411-session-selector') as HTMLSelectElement;
-        selector.innerHTML = '<option value="">-- Choisir une analyse passée --</option>';
-        const regGroup = document.createElement('optgroup'); regGroup.label = '🕒 SCANS INSCRIPTIONS';
-        const leadGroup = document.createElement('optgroup'); leadGroup.label = '🥇 SCANS CLASSEMENTS';
-        sessions.forEach(s => {
-            const opt = document.createElement('option'); opt.value = s.id;
-            opt.textContent = `${s.name} (${new Date(s.createdAt).toLocaleDateString()})`;
-            if (s.id.startsWith('reg_')) regGroup.appendChild(opt); else leadGroup.appendChild(opt);
-        });
-        if (regGroup.children.length > 0) selector.appendChild(regGroup);
-        if (leadGroup.children.length > 0) selector.appendChild(leadGroup);
-    }
-
-    private async loadSession(sessionId: string) {
-        if (!sessionId || !this.shadow) return;
-        const session = await HistoryService.getSession(sessionId);
-        if (!session) return;
-        this.currentSessionId = session.id;
-        this.shadow.getElementById('c411-current-title')!.textContent = session.name;
-        
-        const toolId = sessionId.startsWith('reg_') ? 'registration' : 'leaderboard';
-        (this.shadow.getElementById('c411-current-tool') as HTMLSelectElement).value = toolId;
-        await this.switchTool(toolId);
-
-        if (toolId === 'registration') {
-            (this.shadow.getElementById('c411-scan-date-start') as HTMLInputElement).value = session.startDate;
-            (this.shadow.getElementById('c411-scan-date-end') as HTMLInputElement).value = session.endDate;
-        } else {
-            (this.shadow.getElementById('c411-leaderboard-rank') as HTMLSelectElement).value = (session.rankId || 0).toString();
-        }
-        (this.shadow.getElementById('c411-quick-scan') as HTMLInputElement).checked = session.quickScan;
-
-        this.allSessionEntries = session.entries;
-        this.applyAllFilters();
-        this.switchTab('scan');
-    }
-
-    private async deleteCurrentSession() {
-        if (!this.currentSessionId) return;
-        
-        const { isConfirmed } = await Swal.fire({
-            title: 'Supprimer cette analyse ?',
-            text: 'Cette action est irréversible.',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonText: 'Oui, supprimer',
-            cancelButtonText: 'Annuler'
-        });
-
-        if (isConfirmed) {
-            await HistoryService.deleteSession(this.currentSessionId);
-            this.currentSessionId = null;
-            this.allSessionEntries = [];
-            this.shadow!.getElementById('c411-mod-results')!.innerHTML = '';
-            await this.refreshSessionList();
-        }
-    }
-
-    private async clearAllSessions() {
-        const { isConfirmed } = await Swal.fire({
-            title: 'Tout supprimer ?',
-            text: 'Toutes les analyses sauvegardées seront effacées.',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonText: 'Oui, tout supprimer',
-            cancelButtonText: 'Annuler'
-        });
-
-        if (isConfirmed) {
-            await HistoryService.clearAllSessions();
-            this.currentSessionId = null;
-            this.allSessionEntries = [];
-            this.shadow!.getElementById('c411-mod-results')!.innerHTML = '';
-            await this.refreshSessionList();
-            await this.checkResumeState();
-        }
-    }
-
     private updateGlobalStats() {
         if (!this.shadow) return;
-        const filtered = this.allSessionEntries.filter(entry => {
-            if (this.activePatternFlags.size === 0) return true;
-            const flags = this.calculateFlags(entry.analysis, entry.user);
-            let match = true;
-            this.activePatternFlags.forEach(f => { if (!flags.includes(f)) match = false; });
-            return match;
-        });
+        const filtered = this.allSessionEntries.filter(entry => this.shouldDisplayUser(entry.analysis, entry.user));
         this.shadow.getElementById('c411-stat-total')!.textContent = filtered.length.toString();
         this.shadow.getElementById('c411-stat-suspect')!.textContent = filtered.filter(e => e.analysis.suspicionScore >= 30 && e.analysis.suspicionScore < 120).length.toString();
         this.shadow.getElementById('c411-stat-critical')!.textContent = filtered.filter(e => e.analysis.suspicionScore >= 120).length.toString();

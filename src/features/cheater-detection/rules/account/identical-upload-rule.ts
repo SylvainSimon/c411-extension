@@ -13,7 +13,9 @@ CheatRuleRegistry.register({
     const sortedSnatches = [...allSnatches].sort((a, b) => b.actualUploaded - a.actualUploaded);
 
     for (const s1 of sortedSnatches) {
-      if (processed.has(s1.infoHash) || s1.actualUploaded < 1024 * 1024 * 1024) continue;
+      // Pour les très petits comptes (<= 3 snatches), on baisse le seuil de volume à 100 Mo pour détecter les tests
+      const minVolTrigger = allSnatches.length <= 3 ? 100 * 1024 * 1024 : 1024 * 1024 * 1024;
+      if (processed.has(s1.infoHash) || s1.actualUploaded < minVolTrigger) continue;
 
       // Tolérance équilibrée : 0.5% ou 500 Mo
       const volTolerance = Math.min(s1.actualUploaded * 0.005, 500 * 1024 * 1024); 
@@ -32,13 +34,18 @@ CheatRuleRegistry.register({
         return sameVol && sameTime;
       });
 
-      // Seuil de déclenchement à 3 torrents (Preuve Vol + Temps solide)
-      if (group.length >= 3) {
+      // Seuil de déclenchement :
+      // - Soit 3 torrents identiques (Preuve solide)
+      // - Soit TOUS les torrents du compte si celui-ci en a au moins 2 (Suspicion maximale dès le début)
+      const isTotalMatch = group.length === allSnatches.length && group.length >= 2;
+      
+      if (group.length >= 3 || isTotalMatch) {
         const volumeStr = FormatUtils.formatBytes(s1.actualUploaded);
         const s1Time = s1.seedingTime || 0;
         const timeStr = s1Time === 0 ? "sans seed" : `~${FormatUtils.formatDuration(s1Time)} de seed`;
         
-        patterns.push(`~${volumeStr} ${timeStr} sur ${group.length} torrents`);
+        const suffix = isTotalMatch && group.length < 3 ? " (100% de l'activité)" : "";
+        patterns.push(`~${volumeStr} ${timeStr} sur ${group.length} torrents${suffix}`);
         group.forEach(g => processed.add(g.infoHash));
       }
     }
