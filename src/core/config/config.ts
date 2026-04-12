@@ -14,8 +14,8 @@ export const Config = {
    */
   async get<K extends keyof AppConfig>(key: K): Promise<AppConfig[K]> {
     return new Promise((resolve) => {
-      chrome.storage.sync.get(defaults, (items) => {
-        resolve((items as AppConfig)[key]);
+      chrome.storage.sync.get(defaults as Record<string, any>, (items) => {
+        resolve((items as unknown as AppConfig)[key]);
       });
     });
   },
@@ -25,8 +25,8 @@ export const Config = {
    */
   async getAll(): Promise<AppConfig> {
     return new Promise((resolve) => {
-      chrome.storage.sync.get(defaults, (items) => {
-        resolve(items as AppConfig);
+      chrome.storage.sync.get(defaults as Record<string, any>, (items) => {
+        resolve(items as unknown as AppConfig);
       });
     });
   },

@@ -34,13 +34,13 @@ const STATE_KEY = 'c411_current_scan_state';
 
 export const HistoryService = {
     async getSessionsList(): Promise<Omit<ScanSession, 'entries'>[]> {
-        const data = await chrome.storage.local.get(INDEX_KEY);
+        const data = await chrome.storage.local.get(INDEX_KEY) as any;
         return data[INDEX_KEY] || [];
     },
 
     async getSession(id: string): Promise<ScanSession | null> {
         const key = `session_data_${id}`;
-        const data = await chrome.storage.local.get(key);
+        const data = await chrome.storage.local.get(key) as any;
         return data[key] || null;
     },
 
@@ -90,7 +90,7 @@ export const HistoryService = {
     },
 
     async getScanState(): Promise<ScanState | null> {
-        const data = await chrome.storage.local.get(STATE_KEY);
+        const data = await chrome.storage.local.get(STATE_KEY) as any;
         return data[STATE_KEY] || null;
     },
 

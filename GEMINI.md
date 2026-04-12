@@ -75,5 +75,9 @@ Automatise la création de fiches de présentation pour les films lors de l'uplo
 
 ### Workflow Technique
 - **Version actuelle** : 0.4.0
-- **Validation** : `npx tsc --noEmit` obligatoire. Garder le code exempt de variables/imports non utilisés.
+- **Stack** : Vite 8 (moteur Rolldown), TypeScript 6, CRXJS.
+- **Validation** : `npx tsc --noEmit` obligatoire. Utiliser `"moduleResolution": "bundler"` dans `tsconfig.json`.
+- **Configuration Vite** :
+    - Utiliser `rolldownOptions` au lieu de `rollupOptions` pour le build.
+    - Un plugin de nettoyage (`fix-crxjs-platform`) est nécessaire dans `vite.config.ts` pour supprimer l'option injectée `platform` incompatible avec Rolldown.
 - **Développement** : `npm run dev` (Vite + CRXJS).
