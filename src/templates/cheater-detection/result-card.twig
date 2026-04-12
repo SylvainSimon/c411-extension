@@ -12,16 +12,23 @@
   </div>
 
   {% if analysis.globalWarnings|length > 0 %}
-    <div class="p-3 bg-orange-500/10 border-b border-orange-500/20 space-y-1.5">
+    <div class="p-3 bg-orange-500/10 border-b border-orange-500/20 space-y-1.5 overflow-hidden">
       <div class="text-[11px] font-bold text-orange-400 uppercase tracking-wider">⚠️ Alertes de compte :</div>
       {% for warning in analysis.globalWarnings %}
-        <div class="text-xs text-orange-200 flex gap-2">
+        <div class="text-xs text-orange-200 flex gap-2 {% if 'Débit global' in warning %}overflow-x-auto pb-2 custom-scrollbar{% endif %}" style="{% if 'Débit global' in warning %}white-space: pre; font-family: monospace; line-height: 1.4;{% endif %}">
           <span>•</span>
           <span>{{ warning }}</span>
         </div>
       {% endfor %}
     </div>
   {% endif %}
+  
+  <style>
+    .custom-scrollbar::-webkit-scrollbar { height: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(251, 146, 60, 0.3); border-radius: 10px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(251, 146, 60, 0.5); }
+  </style>
   
   <div>
     {% for torrent in topSuspects %}

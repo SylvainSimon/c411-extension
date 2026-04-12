@@ -4,4 +4,5 @@ export interface AppConfig {
   minUploadedTB: number | null;
   apiRateLimit: number;
   deepAnalysisLimit: number;
+  maxSpeedMbps?: number;
 }

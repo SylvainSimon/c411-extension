@@ -170,7 +170,12 @@ export const CheatAnalyzer = {
     }
 
     let score = 0;
-    score += globalWarnings.length * 50;
+    
+    // Pondération des alertes de compte
+    for (const warning of globalWarnings) {
+        if (warning.includes('Débit global')) score += 100; // Alerte très sérieuse
+        else score += 50; // Alerte standard (ex: identiques)
+    }
 
     for (const t of suspiciousTorrents) {
       if (t.isImpossibleRatio) score += 100;

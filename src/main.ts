@@ -14,6 +14,7 @@ import './features/cheater-detection/rules/torrent/deep/dominance-rule';
 
 // Importation des règles Account
 import './features/cheater-detection/rules/account/identical-upload-rule';
+import './features/cheater-detection/rules/account/aggregate-speed-rule';
 
 /**
  * Initialisation de l'extension
